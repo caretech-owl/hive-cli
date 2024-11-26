@@ -1,15 +1,23 @@
+import logging
 from pathlib import Path
 import uuid
 from pydantic import BaseModel, Field
 import random
 import string
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
 
-CONFIG_PATH = Path.home() / ".hive-cli"
+_LOGGER = logging.getLogger(__name__)
+
+CONFIG_PATH = Path(os.environ.get("HIVE_HOME", Path.home() / ".hive")).resolve()
+
 if not CONFIG_PATH.exists():
     CONFIG_PATH.mkdir()
 
 CLI_CONFIG = CONFIG_PATH / "config.json"
+
 
 class SslConfig(BaseModel):
     key_path: Path = CONFIG_PATH / "key.pem"
@@ -18,24 +26,32 @@ class SslConfig(BaseModel):
     common_name: str = "caretech-owl.de"
     country_name: str = "DE"
     locality_name: str = "Bielefeld"
-    state_or_province_name:str = "NRW"
+    state_or_province_name: str = "NRW"
     passphrase: str = Field(
         default_factory=lambda: "".join(
             random.SystemRandom().choice(string.printable) for _ in range(32)
         )
     )
 
+
 class ServerConfig(BaseModel):
     ssl: SslConfig = SslConfig()
 
 
 class Settings(BaseModel):
-    hive_uuid: uuid.UUID = uuid.UUID(int=uuid.getnode())
+    hive_id: int = Field(default_factory=uuid.getnode)
     hive_url: str = "https://github.com/caretech-owl/hive.git"
     hive_repo: Path = CONFIG_PATH / "hive"
     update_interval: int = 60
     version: str = "0.0.0"
     server: ServerConfig = ServerConfig()
+    log_level: str = "DEBUG"
+    log_path: Path | None = CONFIG_PATH / "hive.log"
+
+    def save(self) -> None:
+        _LOGGER.info("Saving settings to %s", CLI_CONFIG)
+        with CLI_CONFIG.open("w") as f:
+            f.write(self.model_dump_json(indent=2))
 
 
 class _Instance:

@@ -5,3 +5,6 @@ __pycache__
 # virtualenv
 .venv
 .python-version
+
+# generated files
+config/
