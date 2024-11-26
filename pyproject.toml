@@ -1,0 +1,21 @@
+[project]
+name = "hive-cli"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "cryptography>=43.0.1",
+    "fastapi>=0.114.0",
+    "gitpython>=3.1.43",
+    "nicegui>=2.7.0",
+    "pydantic-settings>=2.4.0",
+    "ruff>=0.6.4",
+    "streamlit>=1.40.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.3",
+    "ruff>=0.6.4",
+]
