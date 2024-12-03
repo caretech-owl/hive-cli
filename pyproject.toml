@@ -11,6 +11,7 @@ dependencies = [
     "gitpython>=3.1.43",
     "humanize>=4.11.0",
     "nicegui>=2.7.0",
+    "poethepoet>=0.31.1",
     "pydantic-settings>=2.4.0",
     "python-dotenv>=1.0.1",
     "ruff>=0.6.4",
@@ -19,6 +20,9 @@ dependencies = [
 [dependency-groups]
 dev = ["pytest>=8.3.3", "ruff>=0.6.4"]
 
+[tool.poe.tasks]
+prod.script = "hive_cli.server:prod()"
+dev.script = "hive_cli.server:dev()"
 
 # Without build system declaration the package cannot be imported
 # https://github.com/astral-sh/uv/issues/9291

@@ -6,12 +6,19 @@ import uvicorn
 from hive_cli.config import load_settings
 from hive_cli.docker import DockerController
 from hive_cli.frontend import Frontend
-from hive_cli.repo import get_data
 
 _LOGGER = logging.getLogger(__name__)
 
+# TODO: #2 Startup flow should be more interactive @aleneum
+# - check if config exists
+# - if config exists show a login screen via HTTPS
+# - if no config exists show a setup screen via HTTP
+#   - generate a new config and SSL certificate
+#   - show fingerprint and reload setup page
+#   - show password once!
 
 def setup_logging() -> None:
+    logging.basicConfig(level=logging.WARNING)
     settings = load_settings()
     logger = logging.getLogger("hive_cli")
     logger.setLevel(settings.log_level.upper())
@@ -40,7 +47,7 @@ def prod() -> None:
         generate_cert()
 
     app = FastAPI()
-    frontend = Frontend(load_settings(), DockerController())
+    frontend = Frontend(settings, DockerController(settings))
     frontend.setup_ui(app)
 
     _LOGGER.info("Starting server.")
