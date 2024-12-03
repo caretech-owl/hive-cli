@@ -43,7 +43,6 @@ class Frontend:
             ),
             None,
         )
-        print(logging.getLogger("hive_cli").handlers)
 
     @ui.refreshable
     def repo_status(self):
