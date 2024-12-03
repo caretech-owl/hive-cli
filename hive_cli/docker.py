@@ -50,17 +50,12 @@ class DockerController:
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
-        self.state = DockerState.UNKNOWN
+        self.state = DockerState.NOT_CONFIGURED
         self.client = None
         self._runner = None
         self._recipe: Recipe | None = None
         try:
             self.client = docker.from_env()
-            self.state = (
-                DockerState.STARTED
-                if len(self.get_container_states())
-                else DockerState.NOT_CONFIGURED
-            )
         except Exception as e:
             _LOGGER.error(e)
             self.state = DockerState.NOT_AVAILABLE
@@ -79,9 +74,14 @@ class DockerController:
             _LOGGER.info("Stopping Docker Compose before changing recipe...")
             self.stop()
         self._recipe = value
-        self.state = (
-            DockerState.NOT_CONFIGURED if value is None else DockerState.STOPPED
-        )
+        if value is None:
+            self.state = DockerState.NOT_CONFIGURED
+        else:
+            self.state = (
+                DockerState.STOPPED
+                if len(self.get_container_states()) == 0
+                else DockerState.STARTED
+            )
 
     def get_container_states(self) -> list[ContainerState]:
         if self.recipe is None:

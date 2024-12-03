@@ -19,6 +19,9 @@ INFO_STYLE = (
 )
 SIMPLE_STYLE = "py-2 px-4 rounded-lg text-center text-lg font-bold"
 LOG_STYLE = "font: 12px/1.5 monospace; white-space: pre-wrap; background-color: #f7f7f7; border-radius: 5px; border: 1px solid #ddd;"
+SERVICE_ACTIVE_STYLE = "bg-green-500 text-white py-2 px-4 rounded-lg text-center text-lg font-bold"
+SERVICE_INACTIVE_STYLE = "bg-gray-500 text-white py-2 px-4 rounded-lg text-center text-lg font-bold"
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -93,13 +96,15 @@ class Frontend:
                 f"⚠️ No recipe for {self.settings.hive_id} found!"
             ).tailwind(WARNING_STYLE)
 
+    @ui.refreshable
     def available_endpoints(self):
-
-        if self.docker.state == DockerState.STARTED and self.hive:
+        if self.hive and self.hive.recipe:
             for endpoint in self.hive.recipe.endpoints:
                 ui.link(
                     endpoint.name, f"{endpoint.protocol}://localhost:{endpoint.port}"
-                ).tailwind("text-blue-500 text-lg")
+                ).tailwind(SERVICE_ACTIVE_STYLE) if self.docker.state == DockerState.STARTED else ui.label(
+                    endpoint.name
+                ).tailwind(SERVICE_INACTIVE_STYLE)
 
     @ui.refreshable
     def container_status(self):
@@ -144,6 +149,8 @@ class Frontend:
         if self.docker.state in [DockerState.STARTED, DockerState.STOPPED]:
             _LOGGER.debug("Cancelling timer")
             self.timer.active = False
+            self.available_endpoints.refresh()
+        self.container_status.refresh()
         self.docker_status.refresh()
 
     def start_docker(self):
