@@ -87,9 +87,7 @@ class DockerController:
         if self.recipe is None:
             return []
 
-        cmd = [
-            "docker-compose",
-        ]
+        cmd = ["docker", "compose"]
         for composer_file in self.recipe.compose:
             cmd.extend(["-f", composer_file])
         cmd.extend(["ps", "--format", "json"])
@@ -140,7 +138,7 @@ class DockerController:
         return self.client.images.list()
 
     def compose_do(self, *commands: list[str]) -> subprocess.Popen:
-        cmd = ["docker-compose"]
+        cmd = ["docker", "compose"]
         for composer_file in self.recipe.compose:
             cmd.extend(["-f", composer_file])
         cmd.extend(commands)
