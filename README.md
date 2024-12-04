@@ -45,3 +45,7 @@ INFO:     Uvicorn running on https://0.0.0.0:443 (Press CTRL+C to quit)
 ```
 
 `hive-cli` should now be available at https://0.0.0.0 or https://localhost or https://127.0.0.1 with a self-signed certificate.
+
+## Concept
+
+![](concepts/overview.png)
