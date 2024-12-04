@@ -23,7 +23,7 @@ docker volume create hive
 # Change when your docker socker is located somewhere else
 DOCKER_SOCKET="/var/run/docker.sock"
 DOCKER_GID=$(stat -c '%g' ${DOCKER_SOCKET})
-docker run -p 443:443 -v $HOME/.hive:/hive -v ${DOCKER_SOCKET}:/var/run/docker.sock -ti --rm -e UID=$UID -e GID=${DOCKER_GID} -v hive:/workspace/hive ghcr.io/caretech-owl/hive-cli
+docker run -p 443:443 -v $HOME/.docker:/workspace/.docker -v $HOME/.hive:/hive -v ${DOCKER_SOCKET}:/var/run/docker.sock -ti --rm -e UID=$UID -e GID=${DOCKER_GID} -v hive:/workspace/hive ghcr.io/caretech-owl/hive-cli
 ```
 
 ### Output
