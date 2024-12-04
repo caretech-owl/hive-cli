@@ -94,7 +94,9 @@ class DockerController:
             cmd.extend(["-f", composer_file])
         cmd.extend(["ps", "--format", "json"])
         _LOGGER.debug(f"Running command: {' '.join(cmd)}")
-        res = subprocess.check_output(cmd, cwd=self.recipe.path.parent).decode("utf-8")
+        res = subprocess.check_output(
+            cmd, cwd=self.recipe.path.parent, env=os.environ | self.recipe.environment
+        ).decode("utf-8")
         return [ContainerState.model_validate_json(line) for line in res.splitlines()]
 
     def _task_start(self) -> None:
@@ -143,6 +145,10 @@ class DockerController:
             cmd.extend(["-f", composer_file])
         cmd.extend(commands)
         _LOGGER.debug(f"Running command: {cmd}")
+        pipe = subprocess.Popen(["printenv"], env=os.environ | self.recipe.environment)
+        for line in pipe.stdout:
+            print(line)
+
         return subprocess.Popen(
             cmd,
             cwd=self.settings.hive_repo,
