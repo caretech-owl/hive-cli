@@ -145,9 +145,6 @@ class DockerController:
             cmd.extend(["-f", composer_file])
         cmd.extend(commands)
         _LOGGER.debug(f"Running command: {cmd}")
-        pipe = subprocess.Popen(["printenv"], env=os.environ | self.recipe.environment)
-        for line in pipe.stdout:
-            print(line)
 
         return subprocess.Popen(
             cmd,
