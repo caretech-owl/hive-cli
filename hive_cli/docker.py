@@ -98,38 +98,36 @@ class DockerController:
         return [ContainerState.model_validate_json(line) for line in res.splitlines()]
 
     def _task_start(self) -> None:
-        if self.state == DockerState.STOPPED:
-            self.state = DockerState.PULLING
-            for image_name in self.recipe.config.images:
-                _LOGGER.info(f"Pulling image: {image_name}")
-                pipe = self.compose_do("pull")
-                for line in pipe.stdout:
-                    _LOGGER.debug(line.decode("utf-8").strip())
-            _LOGGER.info("Starting Docker Compose")
-            self.state = DockerState.STARTING
-            pipe = self.compose_do("up", "-d")
+        for image_name in self.recipe.config.images:
+            _LOGGER.info(f"Pulling image: {image_name}")
+            pipe = self.compose_do("pull")
             for line in pipe.stdout:
                 _LOGGER.debug(line.decode("utf-8").strip())
-            self.state = DockerState.STARTED
+        _LOGGER.info("Starting Docker Compose")
+        self.state = DockerState.STARTING
+        pipe = self.compose_do("up", "-d")
+        for line in pipe.stdout:
+            _LOGGER.debug(line.decode("utf-8").strip())
+        self.state = DockerState.STARTED
 
     def _task_stop(self) -> None:
-        if self.state == DockerState.STARTED:
-            _LOGGER.info("Stopping Docker Compose")
-            self.state = DockerState.STOPPING
-            pipe = self.compose_do("down")
-            for line in pipe.stdout:
-                _LOGGER.debug(line.decode("utf-8").strip())
-            self.state = DockerState.STOPPED
+        _LOGGER.info("Stopping Docker Compose")
+        pipe = self.compose_do("down")
+        for line in pipe.stdout:
+            _LOGGER.debug(line.decode("utf-8").strip())
+        self.state = DockerState.STOPPED
 
     def start(self) -> None:
-        self._runner = Thread(target=self._task_start)
-        self._runner.start()
-        time.sleep(1)
+        if self.state == DockerState.STOPPED:
+            self.state = DockerState.PULLING
+            self._runner = Thread(target=self._task_start)
+            self._runner.start()
 
     def stop(self) -> None:
-        self._runner = Thread(target=self._task_stop)
-        self._runner.start()
-        time.sleep(1)
+        if self.state == DockerState.STARTED:
+            self.state = DockerState.STOPPING
+            self._runner = Thread(target=self._task_stop)
+            self._runner.start()
 
     @property
     def images(self) -> list[docker.models.images.Image]:
