@@ -11,6 +11,8 @@ class ComposerService(BaseModel):
     volumes: list[str] | None = None
     environment: dict | None = None
     depends_on: list[str] | None = None
+    command: list[str] | None = None
+    entrypoint: list[str] | None = None
 
 class ComposerConfig(BaseModel):
     services: dict[str, ComposerService] = {}
