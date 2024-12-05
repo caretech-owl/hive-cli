@@ -59,11 +59,3 @@ def prod() -> None:
         ssl_certfile=settings.server.ssl.cert_path,
         ssl_keyfile_password=settings.server.ssl.passphrase,
     )
-
-
-def dev() -> None:
-    setup_logging()
-    settings = load_settings()
-    _LOGGER.info("Starting server in development mode.")
-    frontend = Frontend(settings, DockerController(settings))
-    frontend.setup_ui()
