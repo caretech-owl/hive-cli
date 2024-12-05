@@ -96,6 +96,15 @@ class DockerController:
             cmd, cwd=self.recipe.path.parent, env=os.environ | self.recipe.environment
         ).decode("utf-8")
         return [ContainerState.model_validate_json(line) for line in res.splitlines()]
+    
+    def get_container_logs(self, num_entries: int) -> list[str]:
+        if self.recipe is None:
+            return []
+
+        lines = []
+        for line in self.compose_do("logs", "--no-color", "-n", str(num_entries)).stdout:
+            lines.append(line.decode("utf-8").strip())
+        return lines
 
     def _task_start(self) -> None:
         for image_name in self.recipe.config.images:
