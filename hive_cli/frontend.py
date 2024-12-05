@@ -1,3 +1,4 @@
+from functools import partial
 import logging.handlers
 from fastapi import FastAPI
 from nicegui import ui
@@ -42,7 +43,8 @@ class Frontend:
         self.hive = None
         self.timer: ui.timer = ui.timer(5, self.check_docker_state, active=False)
         self.log_timer = ui.timer(30, self.log_status.refresh, active=False)
-        self.num_entries = 20
+        self.log_num_entries_cli = 20
+        self.log_num_entries_com = 20
         self.log_handler: MemoryHandler | None = next(
             (
                 handler
@@ -106,18 +108,20 @@ class Frontend:
 
     @ui.refreshable
     def available_endpoints(self):
-        if self.hive and self.hive.recipe:
-            for endpoint in self.hive.recipe.endpoints:
-                button = ui.button(
-                    endpoint.name,
-                    on_click=lambda: ui.run_javascript(
-                        f"window.open(`{endpoint.protocol}://${{window.location.hostname}}:{endpoint.port}`)"
-                    ),
-                    icon=endpoint.icon,
-                )
-                button.tailwind(SERVICE_ACTIVE_STYLE)
-                if self.docker.state != DockerState.STARTED:
-                    button.disable()
+        if self.hive and self.hive.recipe and self.hive.recipe.endpoints:
+            with ui.row():
+                for endpoint in self.hive.recipe.endpoints:
+                    button = ui.button(
+                        endpoint.name,
+                        on_click=partial(
+                            ui.run_javascript,
+                            f"window.open(`{endpoint.protocol}://${{window.location.hostname}}:{endpoint.port}`)",
+                        ),
+                        icon=endpoint.icon,
+                    )
+                    button.tailwind(SERVICE_ACTIVE_STYLE)
+                    if self.docker.state != DockerState.STARTED:
+                        button.disable()
 
     @ui.refreshable
     def container_status(self):
@@ -138,24 +142,43 @@ class Frontend:
         else:
             ui.label("No running container found")
 
-    def change_log_num_entries(self, evt: ValueChangeEventArguments):
-        self.num_entries = evt.value
+    def change_log_num_entries_cli(self, evt: ValueChangeEventArguments):
+        self.log_num_entries_cli = evt.value
+        self.log_status.refresh()
+
+    def change_log_num_entries_com(self, evt: ValueChangeEventArguments):
+        self.log_num_entries_com = evt.value
         self.log_status.refresh()
 
     @ui.refreshable
     def log_status(self):
         with ui.row().classes("flex items-center"):
-            ui.label("Log").tailwind(HEADER_STYLE)
+            ui.label("Container Log").tailwind(HEADER_STYLE)
             ui.select(
                 options=[10, 20, 50, 100, 200],
-                value=self.num_entries,
-                on_change=self.change_log_num_entries,
+                value=self.log_num_entries_com,
+                on_change=self.change_log_num_entries_com,
+            )
+            ui.label("Einträge").tailwind(HEADER_STYLE)
+        with ui.scroll_area().classes("grow").style(LOG_STYLE):
+            with ui.column().style("gap: 0px; line-break: anywhere;"):
+                for record in self.docker.get_container_logs(self.log_num_entries_com):
+                    ui.label(record)
+        with ui.row().classes("flex items-center"):
+            ui.label("Client Log").tailwind(HEADER_STYLE)
+            ui.select(
+                options=[10, 20, 50, 100, 200],
+                value=self.log_num_entries_cli,
+                on_change=self.change_log_num_entries_cli,
             )
             ui.label("Einträge").tailwind(HEADER_STYLE)
         if self.log_handler:
             with ui.scroll_area().classes("grow").style(LOG_STYLE):
-                for record in self.log_handler.buffer[-self.num_entries :][::-1]:
-                    ui.label(self.log_handler.format(record))
+                with ui.column().style("gap: 0.5rem; line-break: anywhere;"):
+                    for record in self.log_handler.buffer[-self.log_num_entries_cli :][
+                        ::-1
+                    ]:
+                        ui.label(self.log_handler.format(record))
 
     def check_docker_state(self):
         _LOGGER.debug("Checking Docker state %s", self.docker.state.name)
@@ -261,7 +284,7 @@ class Frontend:
                         )
 
         with ui.footer().classes("bg-gray-100"):
-            ui.image("./images/devcareop.svg").props('fit=scale-down').tailwind("w-10")
+            ui.image("./images/devcareop.svg").props("fit=scale-down").tailwind("w-10")
             ui.label().tailwind("grow")
             ui.label(__version__).tailwind("text-gray-500 font-semibold")
 
