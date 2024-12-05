@@ -24,6 +24,7 @@ class Endpoint(BaseModel):
     name: str
     port: int
     protocol: str = "http"
+    icon: str | None = None
 
 class Recipe(BaseModel):
     path: Path
