@@ -69,6 +69,7 @@ class Frontend:
         self.docker.recipe = self.hive.recipe
         self.recipe_status.refresh()
         self.docker_status.refresh()
+        ui.label("Konfiguration:").tailwind(SIMPLE_STYLE)
         if self.hive.local_version != self.hive.remote_version:
 
             def on_update_repo():
@@ -78,11 +79,11 @@ class Frontend:
                 self.repo_status.refresh()
                 self.start_docker()
 
-            ui.label("Konfiguration: Update verfügbar").tailwind(INFO_STYLE)
-            ui.button("Update").on_click(on_update_repo)
+            ui.label("Update verfügbar").tailwind(INFO_STYLE)
+            ui.button("Update", icon="upgrade").on_click(on_update_repo)
         else:
-            ui.label("Konfiguration: Aktuell").tailwind(SIMPLE_STYLE)
-            ui.button("Check").on_click(self.repo_status.refresh)
+            ui.label("Aktuell").tailwind(SIMPLE_STYLE)
+            ui.button("Check", icon="refresh").on_click(self.repo_status.refresh)
 
     @ui.refreshable
     def recipe_status(self):
@@ -181,7 +182,7 @@ class Frontend:
 
     @ui.refreshable
     def docker_status(self):
-        docker_label = ui.label(f"Docker: {self.docker.state.name}")
+        docker_label = ui.label(f"{self.docker.state.name}")
 
         match self.docker.state:
             case DockerState.NOT_AVAILABLE | DockerState.NOT_CONFIGURED:
@@ -194,28 +195,22 @@ class Frontend:
                 docker_label.tailwind(PENDING_STYLE)
 
         if self.docker.state == DockerState.NOT_AVAILABLE:
-            ui.button("Retry").on_click(self.docker_status.refresh)
+            ui.button("Retry", icon="refresh").on_click(self.docker_status.refresh)
         elif self.docker.state == DockerState.NOT_CONFIGURED:
             pass
         elif self.docker.state == DockerState.STOPPED:
-            ui.button("Start").on_click(self.start_docker)
+            ui.button("Start", icon="rocket_launch").on_click(self.start_docker)
         elif self.docker.state == DockerState.STARTED:
-            ui.button("Stop").on_click(self.stop_docker)
+            ui.button("Stop", icon="power_settings_new").on_click(self.stop_docker)
         else:
             ui.spinner(size="lg")
 
     def setup_ui(self, app: FastAPI | None = None):
 
-        with (
-            ui.header(elevated=True)
-            .style("background-color: #3874c8")
-            .classes("items-center justify-between")
-        ):
-            ui.label("CareDevOps")
         with ui.row().classes("flex w-5/6 mx-auto space-x-4"):
             with ui.column().classes("grow"):
                 with ui.row().classes("w-full items-center"):
-                    ui.label("Status").tailwind(SIMPLE_STYLE)
+                    ui.label("Docker: ").tailwind(SIMPLE_STYLE)
 
                     # Docker Status
                     self.docker_status()
@@ -265,9 +260,10 @@ class Frontend:
                             lambda: self.settings.save() or self.repo_status.refresh()
                         )
 
-        with ui.footer():
-            ui.label("CLI Version:")
-            ui.label(__version__)
+        with ui.footer().classes("bg-gray-100"):
+            ui.image("./images/devcareop.svg").props('fit=scale-down').tailwind("w-10")
+            ui.label().tailwind("grow")
+            ui.label(__version__).tailwind("text-gray-500 font-semibold")
 
         if app:
             ui.run_with(app)
