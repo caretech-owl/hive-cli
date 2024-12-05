@@ -10,7 +10,6 @@ from hive_cli.docker import DockerController, DockerState
 from hive_cli.repo import get_data, init_repo, update_repo
 
 HEADER_STYLE = "text-lg"
-SUBSECTION_STYLE = "font-bold"
 WARNING_STYLE = (
     "bg-rose-500 text-white py-2 px-4 rounded-lg text-center text-lg font-bold"
 )
@@ -19,9 +18,18 @@ INFO_STYLE = (
 )
 SIMPLE_STYLE = "py-2 px-4 rounded-lg text-center text-lg font-bold"
 LOG_STYLE = "font: 12px/1.5 monospace; white-space: pre-wrap; background-color: #f7f7f7; border-radius: 5px; border: 1px solid #ddd;"
-SERVICE_ACTIVE_STYLE = "bg-green-500 text-white py-2 px-4 rounded-lg text-center text-lg font-bold"
-SERVICE_INACTIVE_STYLE = "bg-gray-500 text-white py-2 px-4 rounded-lg text-center text-lg font-bold"
-
+SERVICE_ACTIVE_STYLE = (
+    "bg-green-500 text-white py-2 px-4 rounded-lg text-center text-lg font-bold h-40"
+)
+DEACTIVATED_STYLE = (
+    "bg-gray-500 text-white py-2 px-4 rounded-lg text-center text-lg font-bold"
+)
+PENDING_STYLE = (
+    "bg-yellow-500 text-white py-2 px-4 rounded-lg text-center text-lg font-bold"
+)
+UPDATE_STYLE = (
+    "bg-purple-500 text-white py-2 px-4 rounded-lg text-center text-lg font-bold"
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -73,7 +81,7 @@ class Frontend:
             ui.label("Konfiguration: Update verfügbar").tailwind(INFO_STYLE)
             ui.button("Update").on_click(on_update_repo)
         else:
-            ui.label("Konfiguration: Aktuell").tailwind(INFO_STYLE)
+            ui.label("Konfiguration: Aktuell").tailwind(SIMPLE_STYLE)
             ui.button("Check").on_click(self.repo_status.refresh)
 
     @ui.refreshable
@@ -91,19 +99,24 @@ class Frontend:
                     }
                 )
         else:
-            ui.label(
-                f"⚠️ No recipe for {self.settings.hive_id} found!"
-            ).tailwind(WARNING_STYLE)
+            ui.label(f"⚠️ No recipe for {self.settings.hive_id} found!").tailwind(
+                WARNING_STYLE
+            )
 
     @ui.refreshable
     def available_endpoints(self):
         if self.hive and self.hive.recipe:
             for endpoint in self.hive.recipe.endpoints:
-                ui.link(
-                    endpoint.name, f"{endpoint.protocol}://localhost:{endpoint.port}"
-                ).tailwind(SERVICE_ACTIVE_STYLE) if self.docker.state == DockerState.STARTED else ui.label(
-                    endpoint.name
-                ).tailwind(SERVICE_INACTIVE_STYLE)
+                button = ui.button(
+                    endpoint.name,
+                    on_click=lambda: ui.run_javascript(
+                        f"window.open(`{endpoint.protocol}://${{window.location.hostname}}:{endpoint.port}`)"
+                    ),
+                    icon=endpoint.icon,
+                )
+                button.tailwind(SERVICE_ACTIVE_STYLE)
+                if self.docker.state != DockerState.STARTED:
+                    button.disable()
 
     @ui.refreshable
     def container_status(self):
@@ -112,7 +125,7 @@ class Frontend:
         container_states = self.docker.get_container_states()
         labels = ["State", "Name", "Image", "Status"]
         if container_states:
-            with ui.scroll_area():
+            with ui.scroll_area().classes("grow"):
                 with ui.grid(columns=len(labels)):
                     for label in labels:
                         ui.label(label)
@@ -155,20 +168,31 @@ class Frontend:
     def start_docker(self):
         _LOGGER.info("Starting Docker")
         self.docker.start()
+        self.docker_status.refresh()
+        self.available_endpoints.refresh()
         self.timer.active = True
 
     def stop_docker(self):
         _LOGGER.info("Stopping Docker")
         self.docker.stop()
+        self.docker_status.refresh()
+        self.available_endpoints.refresh()
         self.timer.active = True
 
     @ui.refreshable
     def docker_status(self):
-        ui.label(f"Docker: {self.docker.state.name}").tailwind(
-            INFO_STYLE
-            if self.docker.state != DockerState.NOT_AVAILABLE
-            else WARNING_STYLE
-        )
+        docker_label = ui.label(f"Docker: {self.docker.state.name}")
+
+        match self.docker.state:
+            case DockerState.NOT_AVAILABLE | DockerState.NOT_CONFIGURED:
+                docker_label.tailwind(WARNING_STYLE)
+            case DockerState.STOPPED:
+                docker_label.tailwind(DEACTIVATED_STYLE)
+            case DockerState.STARTED:
+                docker_label.tailwind(INFO_STYLE)
+            case _:
+                docker_label.tailwind(PENDING_STYLE)
+
         if self.docker.state == DockerState.NOT_AVAILABLE:
             ui.button("Retry").on_click(self.docker_status.refresh)
         elif self.docker.state == DockerState.NOT_CONFIGURED:
@@ -181,6 +205,7 @@ class Frontend:
             ui.spinner(size="lg")
 
     def setup_ui(self, app: FastAPI | None = None):
+
         with (
             ui.header(elevated=True)
             .style("background-color: #3874c8")
@@ -197,8 +222,11 @@ class Frontend:
 
                     # Repo
                     self.repo_status()
-                
+
+                ui.separator()
+                # Endpoints
                 self.available_endpoints()
+                ui.separator()
 
                 # Container
                 self.container_status()
@@ -233,7 +261,9 @@ class Frontend:
                                 int(evt.value) if evt.value.isdigit() else evt.value,
                             ),
                         )
-                        ui.button("Save").on_click(lambda: self.settings.save() or self.repo_status.refresh())
+                        ui.button("Save").on_click(
+                            lambda: self.settings.save() or self.repo_status.refresh()
+                        )
 
         with ui.footer():
             ui.label("CLI Version:")
