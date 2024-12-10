@@ -153,10 +153,9 @@ class DockerController:
         self.state = DockerState.STOPPED
 
     def _task_manifest(self) -> None:
-        _LOGGER.info("Fetching Docker Manifest")
+        _LOGGER.info("Checking for hive-cli updates")
         cmd = ["docker", "manifest", "inspect"]
         try:
-            _LOGGER.info("Checking for hive-cli updates")
             local = subprocess.check_output(
                 cmd + [f"ghcr.io/caretech-owl/hive-cli:{__version__}"],
                 env=os.environ | self.recipe.environment,

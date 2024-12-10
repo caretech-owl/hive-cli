@@ -235,7 +235,8 @@ class Frontend:
     @ui.refreshable
     def footer(self):
         label = ui.label(__version__)
-        label.tailwind("text-gray-500 font-semibold")
+        label.tailwind("text-gray-500 font-semibold cursor-pointer")
+        label.on("click", self.docker.check_update)
         if self.docker.cli_state == UpdateState.UPDATE_AVAILABLE:
             label = ui.icon("cloud_download", size="1.5rem")
             label.tailwind("text-sky-500 font-semibold cursor-pointer")
