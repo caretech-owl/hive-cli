@@ -2,7 +2,6 @@ import logging
 import docker
 import subprocess
 import enum
-import time
 import os
 
 import docker.models
@@ -11,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from hive_cli.config import Settings
 from hive_cli.data import Recipe
+from hive_cli import __version__
 
 from threading import Thread
 
@@ -27,6 +27,14 @@ class DockerState(enum.Enum):
     STARTING = enum.auto()
     STARTED = enum.auto()
     STOPPING = enum.auto()
+
+
+class UpdateState(enum.Enum):
+    UNKNOWN = enum.auto()
+    UP_TO_DATE = enum.auto()
+    UPDATE_AVAILABLE = enum.auto()
+    UPDATING = enum.auto()
+    RESTART_REQUIRED = enum.auto()
 
 
 class ContainerState(BaseModel):
@@ -52,6 +60,7 @@ class DockerController:
         self.settings = settings
         self.state = DockerState.NOT_CONFIGURED
         self.client = None
+        self.cli_state = UpdateState.UP_TO_DATE
         self._runner = None
         self._recipe: Recipe | None = None
         try:
@@ -96,15 +105,32 @@ class DockerController:
             cmd, cwd=self.recipe.path.parent, env=os.environ | self.recipe.environment
         ).decode("utf-8")
         return [ContainerState.model_validate_json(line) for line in res.splitlines()]
-    
+
     def get_container_logs(self, num_entries: int) -> list[str]:
         if self.recipe is None:
             return []
 
         lines = []
-        for line in self.compose_do("logs", "--no-color", "-n", str(num_entries)).stdout:
+        for line in self.compose_do(
+            "logs", "--no-color", "-n", str(num_entries)
+        ).stdout:
             lines.append(line.decode("utf-8").strip())
         return lines
+
+    def _task_update(self, cb) -> None:
+        cmd = ["docker", "pull", "ghcr.io/caretech-owl/hive-cli:latest"]
+        _LOGGER.debug(f"Running command: {' '.join(cmd)}")
+        subprocess.run(cmd, env=os.environ | self.recipe.environment)
+        with (self.settings.hive_repo.parent / "_restart").open("w+"):
+            pass
+        _LOGGER.info("hive-cli update complete")
+        self.cli_state = UpdateState.RESTART_REQUIRED
+        cb()
+
+    def update_cli(self, cb) -> None:
+        self.cli_state = UpdateState.UPDATING
+        thread = Thread(target=self._task_update, args=(cb,))
+        thread.start()
 
     def _task_start(self) -> None:
         for image_name in self.recipe.config.images:
@@ -126,6 +152,27 @@ class DockerController:
             _LOGGER.debug(line.decode("utf-8").strip())
         self.state = DockerState.STOPPED
 
+    def _task_manifest(self) -> None:
+        _LOGGER.info("Fetching Docker Manifest")
+        cmd = ["docker", "manifest", "inspect"]
+        try:
+            _LOGGER.info("Checking for hive-cli updates")
+            local = subprocess.check_output(
+                cmd + [f"ghcr.io/caretech-owl/hive-cli:{__version__}"],
+                env=os.environ | self.recipe.environment,
+            )
+            remote = subprocess.check_output(
+                cmd + ["ghcr.io/caretech-owl/hive-cli:latest"],
+                env=os.environ | self.recipe.environment,
+            )
+            if local != remote:
+                _LOGGER.info("hive-cli update available")
+                self.cli_state = UpdateState.UPDATE_AVAILABLE
+            else:
+                _LOGGER.info("hive-cli is up to date")
+        except Exception as e:
+            _LOGGER.warning(e)
+
     def start(self) -> None:
         if self.state == DockerState.STOPPED:
             self.state = DockerState.PULLING
@@ -137,6 +184,10 @@ class DockerController:
             self.state = DockerState.STOPPING
             self._runner = Thread(target=self._task_stop)
             self._runner.start()
+
+    def check_update(self) -> None:
+        self._runner = Thread(target=self._task_manifest)
+        self._runner.start()
 
     @property
     def images(self) -> list[docker.models.images.Image]:
