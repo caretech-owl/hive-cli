@@ -22,6 +22,7 @@ function hive_cli() {
      -p 443:443 \\
      -v hive:/workspace/hive \\
      -v /var/run/docker.sock:/var/run/docker.sock \\
+     -v \$HOME/.docker:/docker_host \\
      -e UID=\$(id -u) \\
      -e GID=\${SOCKET_GID} \\
      ghcr.io/caretech-owl/hive-cli
