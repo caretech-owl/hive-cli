@@ -1,45 +1,41 @@
 from functools import partial
 import logging.handlers
+import os
+import signal
 from fastapi import FastAPI
-from nicegui import ui
+from nicegui import ui, app as ui_app
 from nicegui.events import ValueChangeEventArguments
 import logging
 from logging.handlers import MemoryHandler
 from hive_cli.config import Settings
 from hive_cli import __version__
-from hive_cli.docker import DockerController, DockerState
+from hive_cli.docker import DockerController, DockerState, UpdateState
 from hive_cli.repo import get_data, init_repo, update_repo
+from hive_cli.styling import (
+    DEACTIVATED_STYLE,
+    HEADER_STYLE,
+    ICO,
+    INFO_STYLE,
+    LOG_STYLE,
+    PENDING_STYLE,
+    SERVICE_ACTIVE_STYLE,
+    SIMPLE_STYLE,
+    WARNING_STYLE,
+)
 
-HEADER_STYLE = "text-lg"
-WARNING_STYLE = (
-    "bg-rose-500 text-white py-2 px-4 rounded-lg text-center text-lg font-bold"
-)
-INFO_STYLE = (
-    "bg-green-500 text-white py-2 px-4 rounded-lg text-center text-lg font-bold"
-)
-SIMPLE_STYLE = "py-2 px-4 rounded-lg text-center text-lg font-bold"
-LOG_STYLE = "font: 12px/1.5 monospace; white-space: pre-wrap; background-color: #f7f7f7; border-radius: 5px; border: 1px solid #ddd;"
-SERVICE_ACTIVE_STYLE = (
-    "bg-green-500 text-white py-2 px-4 rounded-lg text-center text-lg font-bold h-40"
-)
-DEACTIVATED_STYLE = (
-    "bg-gray-500 text-white py-2 px-4 rounded-lg text-center text-lg font-bold"
-)
-PENDING_STYLE = (
-    "bg-yellow-500 text-white py-2 px-4 rounded-lg text-center text-lg font-bold"
-)
-UPDATE_STYLE = (
-    "bg-purple-500 text-white py-2 px-4 rounded-lg text-center text-lg font-bold"
-)
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class Frontend:
 
-    def __init__(self, settings: Settings, docker: DockerController) -> None:
+    def __init__(
+        self, settings: Settings, docker: DockerController, app: FastAPI | None = None
+    ) -> None:
         self.settings = settings
         self.docker = docker
+        self._with_app = app is not None
+        self.app = app or ui_app
         self.hive = None
         self.timer: ui.timer = ui.timer(5, self.check_docker_state, active=False)
         self.log_timer = ui.timer(30, self.log_status.refresh, active=False)
@@ -152,6 +148,7 @@ class Frontend:
 
     @ui.refreshable
     def log_status(self):
+        self.container_status.refresh()
         with ui.row().classes("flex items-center"):
             ui.label("Container Log").tailwind(HEADER_STYLE)
             ui.select(
@@ -228,7 +225,29 @@ class Frontend:
         else:
             ui.spinner(size="lg")
 
-    def setup_ui(self, app: FastAPI | None = None):
+    def _shutdown(self):
+        os.kill(os.getppid(), signal.SIGINT)
+
+    def _update_cli(self):
+        self.docker.update_cli(self.footer.refresh)
+        self.footer.refresh()
+
+    @ui.refreshable
+    def footer(self):
+        label = ui.label(__version__)
+        label.tailwind("text-gray-500 font-semibold")
+        if self.docker.cli_state == UpdateState.UP_TO_DATE:
+            label = ui.icon("cloud_download", size="1.5rem")
+            label.tailwind("text-sky-500 font-semibold cursor-pointer")
+            label.on("click", self._update_cli)
+        elif self.docker.cli_state == UpdateState.UPDATING:
+            ui.spinner(size="sm")
+        elif self.docker.cli_state == UpdateState.RESTART_REQUIRED:
+            label = ui.icon("restart_alt", size="1.5rem")
+            label.tailwind("""text-sky-500 font-semibold cursor-pointer""")
+            label.on("click", self._shutdown)
+
+    def setup_ui(self):
 
         with ui.row().classes("flex w-5/6 mx-auto space-x-4"):
             with ui.column().classes("grow"):
@@ -286,21 +305,11 @@ class Frontend:
         with ui.footer().classes("bg-gray-100"):
             ui.image("images/devcareop.svg").props("fit=scale-down").tailwind("w-10")
             ui.label().tailwind("grow")
-            ui.label(__version__).tailwind("text-gray-500 font-semibold")
+            self.footer()
 
-        ui.page_title('CareDevOp Hive')
+        ui.page_title("CareDevOp Hive")
         # Define a custom favicon
-        ICO = """
-<svg width="100%" height="100%" viewBox="0 0 320 320" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
-    <g transform="matrix(0.120848,0.120848,-0.120848,0.120848,85.2165,-21.2722)">
-        <path d="M984.281,365.458L983.823,101.308C983.823,101.264 983.823,101.221 983.823,101.177C983.823,-128.021 1169.62,-313.823 1398.82,-313.823C1627.87,-313.823 1813.82,-127.867 1813.82,101.177C1813.82,330.376 1628.02,516.177 1398.82,516.177C1398.78,516.177 1398.74,516.177 1398.69,516.177L1134.54,515.719L1135,779.87C1135,779.913 1135,779.957 1135,780C1135,1009.2 949.198,1195 720,1195C490.955,1195 305,1009.05 305,780C305,550.802 490.802,365 720,365C720.043,365 720.087,365 720.13,365C720.13,365 843.054,365.213 984.281,365.458ZM984.541,515.459L719.947,515L719.903,515C573.592,515.052 455,633.677 455,780C455,926.257 573.743,1045 720,1045C866.338,1045 984.971,926.384 985,780.053L984.541,515.459ZM1134.28,365.718C1275.7,365.964 1398.9,366.177 1398.92,366.177C1545.23,366.125 1663.82,247.501 1663.82,101.177C1663.82,-45.08 1545.08,-163.823 1398.82,-163.823C1252.49,-163.823 1133.85,-45.207 1133.82,101.125L1134.28,365.718Z" style="fill:url(#_Linear1);"/>
-    </g>
-    <defs>
-        <linearGradient id="_Linear1" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(1508.82,0,0,1508.82,305,440.589)"><stop offset="0" style="stop-color:rgb(19,170,202);stop-opacity:1"/><stop offset="0.5" style="stop-color:rgb(245,135,36);stop-opacity:1"/><stop offset="1" style="stop-color:rgb(251,196,15);stop-opacity:1"/></linearGradient>
-    </defs>
-</svg>
-"""
-        if app:
-            ui.run_with(app, favicon=ICO)
+        if self._with_app:
+            ui.run_with(self.app, favicon=ICO)
         else:
             ui.run(show=False, favicon=ICO)

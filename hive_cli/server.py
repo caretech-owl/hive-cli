@@ -47,8 +47,8 @@ def prod() -> None:
         generate_cert()
 
     app = FastAPI()
-    frontend = Frontend(settings, DockerController(settings))
-    frontend.setup_ui(app)
+    frontend = Frontend(settings, DockerController(settings), app)
+    frontend.setup_ui()
 
     _LOGGER.info("Starting server.")
     uvicorn.run(
@@ -58,4 +58,5 @@ def prod() -> None:
         ssl_keyfile=settings.server.ssl.key_path,
         ssl_certfile=settings.server.ssl.cert_path,
         ssl_keyfile_password=settings.server.ssl.passphrase,
+        timeout_graceful_shutdown=1,
     )
