@@ -192,7 +192,7 @@ class DockerController:
         try:
             local = subprocess.check_output(
                 cmd + [f"ghcr.io/caretech-owl/hive-cli:{__version__}"],
-                env=os.environ | self.recipe.environment if self.recipe else {},
+                env=os.environ | self.recipe.environment if self.recipe else os.environ,
             )
         except Exception as e:
             _LOGGER.warning(e)
@@ -200,7 +200,7 @@ class DockerController:
         try:
             remote = subprocess.check_output(
                 cmd + ["ghcr.io/caretech-owl/hive-cli:latest"],
-                env=os.environ | self.recipe.environment if self.recipe else {},
+                env=os.environ | self.recipe.environment if self.recipe else os.environ,
             )
             if local != remote:
                 _LOGGER.info("hive-cli update available")

@@ -13,7 +13,7 @@ _LOGGER = logging.getLogger(__name__)
 def init_repo() -> None:
     repo_path = load_settings().hive_repo
     repo_url = load_settings().hive_url
-    _LOGGER.debug("Cloning {%s} to {%s}", repo_url, repo_path)
+    _LOGGER.debug("Cloning %s to %s", repo_url, repo_path)
     repo_path.mkdir()
     repo = Repo.init(repo_path)
     origin = repo.create_remote("origin", repo_url)
