@@ -6,7 +6,7 @@ function hive_cli() {
     SOCKET=\${DOCKER_SOCKET:-/var/run/docker.sock}
     DOCKER_AUTH=\${DOCKER_AUTH:-\$HOME/.docker/config.json}
     if [ ! -f \${DOCKER_AUTH} ]; then
-        echo "Could not find docker auth file at \${DOCKER_AUTH}."
+        echo "❌ Could not find docker auth file at \${DOCKER_AUTH}."
         echo "Please set the DOCKER_AUTH environment variable manually."
         return 1
     fi
@@ -16,13 +16,12 @@ function hive_cli() {
         SOCKET_GID=\${DOCKER_SOCKET_GID}
     fi
     if [ -z \${SOCKET_GID} ]; then
-        echo "Could not determine docker socket location and id."
+        echo "❌ Could not determine docker socket location and id."
         echo "Please set the DOCKER_SOCKET and DOCKER_GID environment variable manually."
         return 1
     fi
-    echo "Logging into ghcr.io ..."
     docker login ghcr.io
-    docker volume create hive
+    docker volume create hive > /dev/null
     docker run -ti --rm \\
      -p 443:443 \\
      -v hive:/workspace/hive \\
