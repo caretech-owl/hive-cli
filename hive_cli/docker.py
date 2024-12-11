@@ -80,7 +80,7 @@ class DockerController:
             _LOGGER.info("State changed from %s to %s", self._state, value)
             self._state = value
             for listener in self.state_listener:
-                listener(value)
+                listener()
 
     @property
     def cli_state(self) -> UpdateState:
@@ -92,7 +92,7 @@ class DockerController:
             _LOGGER.info("CLI state changed from %s to %s", self._cli_state, value)
             self._cli_state = value
             for listener in self.cli_state_listener:
-                listener(value)
+                listener()
 
     @property
     def recipe(self) -> Recipe | None:
@@ -194,6 +194,10 @@ class DockerController:
                 cmd + [f"ghcr.io/caretech-owl/hive-cli:{__version__}"],
                 env=os.environ | self.recipe.environment if self.recipe else {},
             )
+        except Exception as e:
+            _LOGGER.warning(e)
+            local = None
+        try:
             remote = subprocess.check_output(
                 cmd + ["ghcr.io/caretech-owl/hive-cli:latest"],
                 env=os.environ | self.recipe.environment if self.recipe else {},
@@ -218,7 +222,7 @@ class DockerController:
             self._runner = Thread(target=self._task_stop)
             self._runner.start()
 
-    def check_update(self) -> None:
+    def check_cli_update(self) -> None:
         self._runner = Thread(target=self._task_manifest)
         self._runner.start()
 
