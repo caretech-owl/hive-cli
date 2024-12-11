@@ -281,14 +281,14 @@ class Frontend:
                 settings = self.settings
                 ui.input(
                     label="Hive ID",
-                    value=str(self.settings.hive_id),
+                    value=self.settings.hive_id,
                     validation={
                         "Input must be a number!": lambda value: value.isdigit()
                     },
                     on_change=lambda evt: setattr(
                         settings,
                         "hive_id",
-                        int(evt.value) if evt.value.isdigit() else evt.value,
+                        evt.value if evt.value.isdigit() else evt.value,
                     ),
                 )
 
