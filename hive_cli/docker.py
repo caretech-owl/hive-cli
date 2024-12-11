@@ -124,7 +124,12 @@ class DockerController:
 
         cmd = ["docker", "compose"]
         for composer_file in self.recipe.compose:
-            if Path(composer_file).exists():
+            path = (
+                Path(composer_file)
+                if composer_file.startswith("/")
+                else self.recipe.path.parent / composer_file
+            ).resolve()
+            if path.exists():
                 cmd.extend(["-f", composer_file])
         if len(cmd) == 2:
             _LOGGER.error("No valid composer files found.")

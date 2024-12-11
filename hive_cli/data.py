@@ -64,7 +64,11 @@ class Recipe(BaseModel):
     def composer_files(self) -> dict[Path, ComposerFile]:
         files = {}
         for local_path in self.compose:
-            path = (self.path.parent / local_path).resolve()
+            path = (
+                Path(local_path)
+                if local_path.startswith("/")
+                else self.path.parent / local_path
+            ).resolve()
             if not path.exists():
                 _LOGGER.warning("File %s not found.", path)
                 continue
