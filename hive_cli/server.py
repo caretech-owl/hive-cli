@@ -1,6 +1,7 @@
 import logging
 import logging.handlers
 import os
+import sys
 
 import uvicorn
 from fastapi import FastAPI
@@ -18,6 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 #   - generate a new config and SSL certificate
 #   - show fingerprint and reload setup page
 #   - show password once!
+
 
 def setup_logging() -> None:
     logging.basicConfig(level=logging.WARNING)
@@ -62,3 +64,9 @@ def prod() -> None:
         ssl_keyfile_password=settings.server.ssl.passphrase,
         timeout_graceful_shutdown=1,
     )
+    _LOGGER.info("Shutting down.")
+    if (settings.hive_repo.parent / "_restart").exists():
+        (settings.hive_repo.parent / "_restart").unlink()
+        _LOGGER.info("Restarting hive-cli requested.")
+        sys.exit(3)
+    sys.exit(0)
