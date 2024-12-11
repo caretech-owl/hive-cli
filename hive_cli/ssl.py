@@ -1,11 +1,12 @@
 import datetime
 import logging
 from pathlib import Path
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.x509.oid import NameOID
-from cryptography.hazmat.primitives import hashes
+
 from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric.types import PrivateKeyTypes
+from cryptography.x509.oid import NameOID
 
 from hive_cli.config import load_settings
 
@@ -42,7 +43,7 @@ def generate_private_key(passphrase: str, output_path: Path):
     _LOGGER.debug("Private key written to %s.", output_path)
 
 
-def load_private_key(passphrase: str, path: Path) -> rsa.RSAPrivateKey:
+def load_private_key(passphrase: str, path: Path) -> PrivateKeyTypes:
     _LOGGER.debug("Attempt to load private key ...")
     if not path.exists():
         generate_private_key(passphrase, path)

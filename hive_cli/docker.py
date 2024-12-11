@@ -1,19 +1,18 @@
-import logging
-import docker
-import subprocess
 import enum
+import logging
 import os
+import subprocess
+from threading import Thread
+from typing import Callable
 
+import docker
 import docker.models
 import docker.models.images
 from pydantic import BaseModel, Field
 
+from hive_cli import __version__
 from hive_cli.config import Settings
 from hive_cli.data import Recipe
-from hive_cli import __version__
-
-from threading import Thread
-
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -58,9 +57,11 @@ class DockerController:
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
-        self.state = DockerState.NOT_CONFIGURED
+        self._state = DockerState.NOT_CONFIGURED
+        self.state_listener: list[Callable] = []
         self.client = None
-        self.cli_state = UpdateState.UP_TO_DATE
+        self._cli_state = UpdateState.UP_TO_DATE
+        self.cli_state_listener: list[Callable] = []
         self._runner = None
         self._recipe: Recipe | None = None
         try:
@@ -68,6 +69,30 @@ class DockerController:
         except Exception as e:
             _LOGGER.error(e)
             self.state = DockerState.NOT_AVAILABLE
+
+    @property
+    def state(self) -> DockerState:
+        return self._state
+
+    @state.setter
+    def state(self, value: DockerState) -> None:
+        if value != self._state:
+            _LOGGER.info("State changed from %s to %s", self._state, value)
+            self._state = value
+            for listener in self.state_listener:
+                listener(value)
+
+    @property
+    def cli_state(self) -> UpdateState:
+        return self._cli_state
+
+    @cli_state.setter
+    def cli_state(self, value: UpdateState) -> None:
+        if value != self._cli_state:
+            _LOGGER.info("CLI state changed from %s to %s", self._cli_state, value)
+            self._cli_state = value
+            for listener in self.cli_state_listener:
+                listener(value)
 
     @property
     def recipe(self) -> Recipe | None:
@@ -100,7 +125,7 @@ class DockerController:
         for composer_file in self.recipe.compose:
             cmd.extend(["-f", composer_file])
         cmd.extend(["ps", "--format", "json"])
-        _LOGGER.debug(f"Running command: {' '.join(cmd)}")
+        _LOGGER.debug("Running command: %s", " ".join(cmd))
         res = subprocess.check_output(
             cmd, cwd=self.recipe.path.parent, env=os.environ | self.recipe.environment
         ).decode("utf-8")
@@ -110,46 +135,55 @@ class DockerController:
         if self.recipe is None:
             return []
 
-        lines = []
-        for line in self.compose_do(
-            "logs", "--no-color", "-n", str(num_entries)
-        ).stdout:
-            lines.append(line.decode("utf-8").strip())
-        return lines
+        pipe = self.compose_do("logs", "--no-color", "-n", str(num_entries))
+        if pipe is not None and pipe.stdout is not None:
+            return [line.decode("utf-8").strip() for line in pipe.stdout]
+        return []
 
-    def _task_update(self, cb) -> None:
-        cmd = ["docker", "pull", "ghcr.io/caretech-owl/hive-cli:latest"]
-        _LOGGER.debug(f"Running command: {' '.join(cmd)}")
-        subprocess.run(cmd, env=os.environ | self.recipe.environment)
-        with (self.settings.hive_repo.parent / "_restart").open("w+"):
-            pass
-        _LOGGER.info("hive-cli update complete")
-        self.cli_state = UpdateState.RESTART_REQUIRED
-        cb()
+    def _task_update(self) -> None:
+        if self.recipe is not None:
+            cmd = ["docker", "pull", "ghcr.io/caretech-owl/hive-cli:latest"]
+            _LOGGER.debug("Running command: %s", " ".join(cmd))
+            subprocess.run(cmd, env=os.environ | self.recipe.environment)
+            with (self.settings.hive_repo.parent / "_restart").open("w+"):
+                pass
+            _LOGGER.info("hive-cli update complete")
+            self.cli_state = UpdateState.RESTART_REQUIRED
 
-    def update_cli(self, cb) -> None:
+    def update_cli(self) -> None:
         self.cli_state = UpdateState.UPDATING
-        thread = Thread(target=self._task_update, args=(cb,))
+        thread = Thread(target=self._task_update)
         thread.start()
 
     def _task_start(self) -> None:
+        if self.recipe is None:
+            return
         for image_name in self.recipe.config.images:
-            _LOGGER.info(f"Pulling image: {image_name}")
+            _LOGGER.info("Pulling image: %s", image_name)
             pipe = self.compose_do("pull")
-            for line in pipe.stdout:
-                _LOGGER.debug(line.decode("utf-8").strip())
+            if pipe is not None and pipe.stdout is not None:
+                for line in pipe.stdout:
+                    _LOGGER.debug(line.decode("utf-8").strip())
+            else:
+                _LOGGER.warning("Received no output from Docker Compose")
         _LOGGER.info("Starting Docker Compose")
         self.state = DockerState.STARTING
         pipe = self.compose_do("up", "-d")
-        for line in pipe.stdout:
-            _LOGGER.debug(line.decode("utf-8").strip())
+        if pipe is not None and pipe.stdout is not None:
+            for line in pipe.stdout:
+                _LOGGER.debug(line.decode("utf-8").strip())
+        else:
+            _LOGGER.warning("Received no output from Docker Compose")
         self.state = DockerState.STARTED
 
     def _task_stop(self) -> None:
         _LOGGER.info("Stopping Docker Compose")
         pipe = self.compose_do("down")
-        for line in pipe.stdout:
-            _LOGGER.debug(line.decode("utf-8").strip())
+        if pipe is not None and pipe.stdout is not None:
+            for line in pipe.stdout:
+                _LOGGER.debug(line.decode("utf-8").strip())
+        else:
+            _LOGGER.warning("Received no output from Docker Compose")
         self.state = DockerState.STOPPED
 
     def _task_manifest(self) -> None:
@@ -158,11 +192,11 @@ class DockerController:
         try:
             local = subprocess.check_output(
                 cmd + [f"ghcr.io/caretech-owl/hive-cli:{__version__}"],
-                env=os.environ | self.recipe.environment,
+                env=os.environ | self.recipe.environment if self.recipe else {},
             )
             remote = subprocess.check_output(
                 cmd + ["ghcr.io/caretech-owl/hive-cli:latest"],
-                env=os.environ | self.recipe.environment,
+                env=os.environ | self.recipe.environment if self.recipe else {},
             )
             if local != remote:
                 _LOGGER.info("hive-cli update available")
@@ -190,16 +224,19 @@ class DockerController:
 
     @property
     def images(self) -> list[docker.models.images.Image]:
-        if self.state == DockerState.NOT_AVAILABLE:
+        if self.state == DockerState.NOT_AVAILABLE or self.client is None:
             return []
         return self.client.images.list()
 
-    def compose_do(self, *commands: list[str]) -> subprocess.Popen:
+    def compose_do(self, *commands: str) -> subprocess.Popen | None:
+        if self.recipe is None:
+            _LOGGER.error("No recipe set.")
+            return None
         cmd = ["docker", "compose"]
         for composer_file in self.recipe.compose:
             cmd.extend(["-f", composer_file])
         cmd.extend(commands)
-        _LOGGER.debug(f"Running command: {cmd}")
+        _LOGGER.debug("Running command: %", " ".join(cmd))
 
         return subprocess.Popen(
             cmd,

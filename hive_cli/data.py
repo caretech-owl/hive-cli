@@ -17,7 +17,7 @@ class ComposerService(BaseModel):
 class ComposerConfig(BaseModel):
     services: dict[str, ComposerService] = {}
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def images(self) -> list[str]:
         return [service.image for service in self.services.values() if service.image]
