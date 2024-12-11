@@ -1,8 +1,10 @@
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from pydantic import BaseModel, computed_field
+
 import yaml
+from pydantic import BaseModel, computed_field
+
 
 class ComposerService(BaseModel):
     image: str | None = None
@@ -35,7 +37,7 @@ class Recipe(BaseModel):
     config: ComposerConfig = ComposerConfig()
     environment: dict[str, str] = {}
 
-    def model_post_init(self, __context: Any) -> None:
+    def model_post_init(self, __context: object) -> None:
         for file in self.compose:
             with (self.path.parent / file).open() as f:
                 config = ComposerConfig.model_validate(yaml.safe_load(f))

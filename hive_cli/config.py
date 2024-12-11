@@ -1,11 +1,12 @@
 import logging
-from pathlib import Path
-import uuid
-from pydantic import BaseModel, Field
+import os
 import random
 import string
+import uuid
+from pathlib import Path
+
 from dotenv import load_dotenv
-import os
+from pydantic import BaseModel, Field
 
 load_dotenv()
 
@@ -36,6 +37,7 @@ class SslConfig(BaseModel):
 
 class ServerConfig(BaseModel):
     ssl: SslConfig = SslConfig()
+    host: str = os.getenv("HIVE_HOST", "127.0.0.1")
 
 
 class Settings(BaseModel):

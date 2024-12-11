@@ -13,8 +13,10 @@ from hive_cli.config import load_settings
 _LOGGER = logging.getLogger(__name__)
 
 
-def generate_private_key(passphrase: str, output_path: Path):
-    assert passphrase, "Passphrase must not be empty."
+def generate_private_key(passphrase: str, output_path: Path) -> None:
+    if not passphrase:
+        msg = "Passphrase must not be empty."
+        raise ValueError(msg)
     exponent = 65537
     key_size = 2048
     _LOGGER.debug(
@@ -55,9 +57,11 @@ def load_private_key(passphrase: str, path: Path) -> PrivateKeyTypes:
         )
 
 
-def generate_cert():
+def generate_cert() -> None:
     settings = load_settings().server.ssl
-    assert not settings.cert_path.exists(), "Certificate already exists."
+    if settings.cert_path.exists():
+        _LOGGER.debug("Certificate already exists.")
+        return
     _LOGGER.info("Generating certificate ...")
     key = load_private_key(settings.passphrase, settings.key_path)
     subject = issuer = x509.Name(

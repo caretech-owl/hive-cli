@@ -1,7 +1,8 @@
 import logging
 import logging.handlers
-from fastapi import FastAPI
+
 import uvicorn
+from fastapi import FastAPI
 
 from hive_cli.config import load_settings
 from hive_cli.docker import DockerController
@@ -23,17 +24,17 @@ def setup_logging() -> None:
     logger = logging.getLogger("hive_cli")
     logger.setLevel(settings.log_level.upper())
     if settings.log_path:
-        logFormatter = logging.Formatter(
+        log_formatter = logging.Formatter(
             "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
         )
-        fileHandler = logging.handlers.RotatingFileHandler(
+        file_handler = logging.handlers.RotatingFileHandler(
             settings.log_path, encoding="utf-8", maxBytes=1048576, backupCount=10
         )
-        fileHandler.setFormatter(logFormatter)
-        bufferHandler = logging.handlers.MemoryHandler(capacity=500)
-        bufferHandler.setFormatter(logFormatter)
-        logger.addHandler(fileHandler)
-        logger.addHandler(bufferHandler)
+        file_handler.setFormatter(log_formatter)
+        buffer_handler = logging.handlers.MemoryHandler(capacity=500)
+        buffer_handler.setFormatter(log_formatter)
+        logger.addHandler(file_handler)
+        logger.addHandler(buffer_handler)
 
 
 def prod() -> None:
@@ -53,7 +54,7 @@ def prod() -> None:
     _LOGGER.info("Starting server.")
     uvicorn.run(
         app,
-        host="0.0.0.0",
+        host=settings.server.host,
         port=443,
         ssl_keyfile=settings.server.ssl.key_path,
         ssl_certfile=settings.server.ssl.cert_path,

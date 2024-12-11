@@ -4,6 +4,7 @@ import os
 import signal
 from functools import partial
 from logging.handlers import MemoryHandler
+from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
 from nicegui import app as ui_app
@@ -12,7 +13,6 @@ from nicegui.events import ValueChangeEventArguments
 
 from hive_cli import __version__
 from hive_cli.config import Settings
-from hive_cli.data import HiveData
 from hive_cli.docker import DockerController, DockerState, UpdateState
 from hive_cli.repo import get_data, init_repo, update_repo
 from hive_cli.styling import (
@@ -27,6 +27,9 @@ from hive_cli.styling import (
     WARNING_STYLE,
 )
 
+if TYPE_CHECKING:
+    from hive_cli.data import HiveData
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -39,7 +42,7 @@ class Frontend:
         self.docker = docker
         self._with_app = app is not None
         self.app = app or ui_app
-        self.hive: HiveData | None  = None
+        self.hive: HiveData | None = None
         self.log_timer = ui.timer(30, self.log_status.refresh, active=False)
         self.log_num_entries_cli = 20
         self.log_num_entries_com = 20
@@ -162,7 +165,9 @@ class Frontend:
             ui.scroll_area().classes("grow").style(LOG_STYLE),
             ui.column().style("gap: 0px; line-break: anywhere;"),
         ):
-            for container_log in self.docker.get_container_logs(self.log_num_entries_com):
+            for container_log in self.docker.get_container_logs(
+                self.log_num_entries_com
+            ):
                 ui.label(container_log)
         with ui.row().classes("flex items-center"):
             ui.label("Client Log").tailwind(HEADER_STYLE)
