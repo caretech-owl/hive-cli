@@ -1,5 +1,6 @@
 import logging
 import logging.handlers
+import os
 
 import uvicorn
 from fastapi import FastAPI
@@ -54,7 +55,7 @@ def prod() -> None:
     _LOGGER.info("Starting server.")
     uvicorn.run(
         app,
-        host=settings.server.host,
+        host=os.getenv("HIVE_HOST", "localhost"),
         port=443,
         ssl_keyfile=settings.server.ssl.key_path,
         ssl_certfile=settings.server.ssl.cert_path,

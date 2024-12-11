@@ -37,7 +37,6 @@ class SslConfig(BaseModel):
 
 class ServerConfig(BaseModel):
     ssl: SslConfig = SslConfig()
-    host: str = os.getenv("HIVE_HOST", "127.0.0.1")
 
 
 class Settings(BaseModel):
