@@ -13,17 +13,12 @@ Find more info [here](https://docs.github.com/en/packages/working-with-a-github-
 echo "<github_token>" | docker login ghcr.io -u USERNAME --password-stdin
 ```
 
-### Setup, Pull and Run
+### Setup hive-cli
 
-Create a volume for persistent configurations and pass docker socket information to the container.
-`hive-cli` cannot control docker correctly without access to it.
+Review [setup.sh](https://raw.githubusercontent.com/caretech-owl/hive-cli/refs/heads/main/setup.sh), download it and execute it or copy/paste the block below.
 
 ```shell
-docker volume create hive
-# Change when your docker socker is located somewhere else
-DOCKER_SOCKET="/var/run/docker.sock"
-DOCKER_GID=$(stat -c '%g' ${DOCKER_SOCKET})
-docker run -p 443:443 -v $HOME/.docker:/workspace/.docker -v $HOME/.hive:/hive -v ${DOCKER_SOCKET}:/var/run/docker.sock -ti --rm -e UID=$UID -e GID=${DOCKER_GID} -v hive:/workspace/hive ghcr.io/caretech-owl/hive-cli
+curl --proto '=https' --tlsv1.2 -LsSf https://raw.githubusercontent.com/caretech-owl/hive-cli/refs/heads/main/setup.sh | sh
 ```
 
 ### Output
