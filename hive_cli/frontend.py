@@ -124,7 +124,7 @@ class Frontend:
     @ui.refreshable
     def recipe_status(self) -> None:
         if self.hive and self.hive.recipe:
-            with ui.expansion("Recipe", icon="receipt_long", value=True).classes(
+            with ui.expansion("Recipe", icon="receipt_long").classes(
                 "w-full"
             ):
                 ui.label(self.hive.recipe.path.name).tailwind(HEADER_STYLE)
