@@ -26,12 +26,14 @@ function hive_cli() {
      -e UID=\$(id -u) \\
      -e GID=\${SOCKET_GID} \\
      ghcr.io/caretech-owl/hive-cli
-    if [ -f $HOME/.hive/_restart ]; then
+    res_code=$?
+    echo "Exited with code ${res_code}"
+    if [ ${res_code} -eq 3 ]; then
         echo "Restarting hive-cli ..."
-        rm $HOME/.hive/_restart
         hive_cli
+    else
+        echo "Goodbye."
     fi
-    echo "Shutdown. Goodbye."
 }
 EOF
 )
