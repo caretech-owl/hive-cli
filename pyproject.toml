@@ -14,15 +14,23 @@ dependencies = [
     "poethepoet>=0.31.1",
     "pydantic-settings>=2.4.0",
     "python-dotenv>=1.0.1",
-    "ruff>=0.6.4",
 ]
 
 [dependency-groups]
-dev = ["pytest>=8.3.3", "ruff>=0.6.4"]
+dev = [
+    "mypy>=1.13.0",
+    "pre-commit-hooks>=5.0.0",
+    "pytest>=8.3.3",
+    "ruff>=0.6.4",
+    "types-docker>=7.1.0.20240827",
+    "types-pyyaml>=6.0.12.20240917",
+]
 
 [tool.poe.tasks]
 prod.script = "hive_cli.server:prod()"
 dev = "uv run dev.py"
+lint = "uv run mypy hive_cli"
+test = "uv run pytest tests"
 
 # Without build system declaration the package cannot be imported
 # https://github.com/astral-sh/uv/issues/9291
@@ -30,3 +38,40 @@ dev = "uv run dev.py"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.ruff.lint]
+# 1. Enable flake8-bugbear (`B`) rules, in addition to the defaults.
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "I",    # isort (imports) styling
+    "N",    # pep8 naming checks
+    "B",    # bugbear checks
+    "ANN",  # type annotations
+    "S",    # bandid code security
+    "C",    # improve code comprehension
+    "EM",   # use recommended error message composition
+    "G",    # use recommended logging format
+    "T20",  # no print allowed
+    "PT",   # pytest styling recommendations
+    "SLF",  # prevent access to private members
+    "SIM",  # code simplification recommendations
+    "TCH",  # checks for type checking imports
+    "ARG",  # no unused arguments
+    "PERF", # performance anti pattern
+    # "FURB",  # enforces modern python
+    # "D",     # enforce documented functions [will be enabled soon]
+]
+
+ignore = [
+    "ANN101"
+]
+
+# 2. Fix everything except flake8-bugbear (`B`) violations.
+fixable = ["ALL"]
+unfixable = ["B"]
+
+# 3. Things to ignore
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"] # assert is fine in pytest
+
