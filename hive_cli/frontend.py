@@ -4,17 +4,19 @@ import os
 import signal
 from functools import partial
 from logging.handlers import MemoryHandler
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
 from nicegui import app as ui_app
 from nicegui import ui
-from nicegui.events import ValueChangeEventArguments
+from nicegui.events import JsonEditorChangeEventArguments, ValueChangeEventArguments
 
 from hive_cli import __version__
 from hive_cli.config import Settings
+from hive_cli.data import ComposerFile, Recipe
 from hive_cli.docker import DockerController, DockerState, UpdateState
-from hive_cli.repo import get_data, init_repo, update_repo
+from hive_cli.repo import get_data, init_repo, reset_repo, update_repo
 from hive_cli.styling import (
     DEACTIVATED_STYLE,
     HEADER_STYLE,
@@ -81,28 +83,75 @@ class Frontend:
                 update_repo()
                 if self.docker.state == DockerState.STARTED:
                     self.docker.stop()
-                self.docker.start()
+                    self.docker.start()
 
             ui.label("Update verfügbar").tailwind(INFO_STYLE)
-            ui.button("Update", icon="upgrade").on_click(on_update_repo)
+            ui.button("Update", icon="cloud_download").on_click(on_update_repo)
+        elif self.hive and self.hive.local_changes:
+            # def on_commit_changes() -> None:
+            #     commit_changes()
+            #     self.repo_status.refresh()
+            def on_reset_repo() -> None:
+                reset_repo()
+                self.repo_status.refresh()
+            ui.label("Lokale Änderungen").tailwind(INFO_STYLE)
+            # ui.button("Commit", icon="upgrade").on_click(on_commit_changes)
+            ui.button("Reset", icon="restore").on_click(on_reset_repo)
         else:
             ui.label("Aktuell").tailwind(SIMPLE_STYLE)
             ui.button("Check", icon="refresh").on_click(self.repo_status.refresh)
 
+    def _update_recipe(self, evt: JsonEditorChangeEventArguments) -> None:
+        try:
+            self.hive.recipe = Recipe.model_validate_json(evt.content["json"])
+            self.hive.recipe.save()
+            self.repo_status.refresh()
+            ui.notification("Recipe updated", type="positive")
+        except Exception as e:
+            _LOGGER.error("Error parsing recipe: %s", e)
+            ui.notification(str(e), type="negative")
+
+    def _update_compose(self, evt: JsonEditorChangeEventArguments, path: Path) -> None:
+        try:
+            compose_file = ComposerFile.model_validate_json(evt.content["json"])
+            compose_file.save(path)
+            self.repo_status.refresh()
+            ui.notification("Compose file updated", type="positive")
+        except Exception as e:
+            _LOGGER.error("Error parsing compose: %s", e)
+            ui.notification(str(e), type="negative")
+
     @ui.refreshable
     def recipe_status(self) -> None:
         if self.hive and self.hive.recipe:
-            with ui.expansion("Recipe", icon="receipt_long").classes("w-full"):
+            with ui.expansion("Recipe", icon="receipt_long", value=True).classes(
+                "w-full"
+            ):
+                ui.label(self.hive.recipe.path.name).tailwind(HEADER_STYLE)
                 ui.json_editor(
                     {
                         "content": {
                             "json": self.hive.recipe.model_dump_json(
                                 indent=2, exclude_none=True
                             )
+                        }
+                    },
+                    on_change=self._update_recipe,
+                ).tailwind("w-full")
+                for path, compose in self.hive.recipe.composer_files().items():
+                    ui.label(path.name).tailwind(SIMPLE_STYLE)
+                    ui.json_editor(
+                        {
+                            "content": {
+                                "json": compose.model_dump_json(
+                                    indent=2, exclude_none=True
+                                )
+                            }
                         },
-                        "readOnly": True,
-                    }
-                )
+                        on_change=lambda evt, path=path: self._update_compose(
+                            evt, path=path
+                        ),
+                    ).tailwind("w-full")
         else:
             ui.label(f"⚠️ No recipe for {self.settings.hive_id} found!").tailwind(
                 WARNING_STYLE

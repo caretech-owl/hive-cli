@@ -2,6 +2,7 @@ import enum
 import logging
 import os
 import subprocess
+from pathlib import Path
 from threading import Thread
 from typing import Callable
 
@@ -123,7 +124,11 @@ class DockerController:
 
         cmd = ["docker", "compose"]
         for composer_file in self.recipe.compose:
-            cmd.extend(["-f", composer_file])
+            if Path(composer_file).exists():
+                cmd.extend(["-f", composer_file])
+        if len(cmd) == 2:
+            _LOGGER.error("No valid composer files found.")
+            return []
         cmd.extend(["ps", "--format", "json"])
         _LOGGER.debug("Running command: %s", " ".join(cmd))
         res = subprocess.check_output(
@@ -158,14 +163,15 @@ class DockerController:
     def _task_start(self) -> None:
         if self.recipe is None:
             return
-        for image_name in self.recipe.config.images:
-            _LOGGER.info("Pulling image: %s", image_name)
-            pipe = self.compose_do("pull")
-            if pipe is not None and pipe.stdout is not None:
-                for line in pipe.stdout:
-                    _LOGGER.debug(line.decode("utf-8").strip())
-            else:
-                _LOGGER.warning("Received no output from Docker Compose")
+        for composer_file in self.recipe.composer_files().values():
+            for image_name in composer_file.images:
+                _LOGGER.info("Pulling image: %s", image_name)
+                pipe = self.compose_do("pull", image_name)
+                if pipe is not None and pipe.stdout is not None:
+                    for line in pipe.stdout:
+                        _LOGGER.debug(line.decode("utf-8").strip())
+                else:
+                    _LOGGER.warning("Received no output from Docker Compose")
         _LOGGER.info("Starting Docker Compose")
         self.state = DockerState.STARTING
         pipe = self.compose_do("up", "-d")

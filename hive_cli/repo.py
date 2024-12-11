@@ -28,7 +28,21 @@ def update_repo() -> None:
     repo = Repo(load_settings().hive_repo)
     origin = repo.remote("origin")
     origin.fetch()
+    if repo.is_dirty():
+        reset_repo()
     origin.pull()
+
+
+def reset_repo() -> None:
+    repo = Repo(load_settings().hive_repo)
+    repo.head.reset(index=True, working_tree=True)
+
+
+def commit_changes() -> None:
+    repo = Repo(load_settings().hive_repo)
+    repo.index.add("*")
+    repo.index.commit("Changes made by hive-cli on " + datetime.now().isoformat())
+    repo.remote("origin").push()
 
 
 def get_data() -> HiveData | None:
@@ -56,4 +70,5 @@ def get_data() -> HiveData | None:
             repo.remote().refs.main.commit.committed_date
         ),
         recipe=recipe,
+        local_changes=repo.is_dirty(),
     )
