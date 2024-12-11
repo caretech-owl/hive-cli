@@ -76,6 +76,7 @@ class Frontend:
             self.docker.recipe = self.hive.recipe
             self.recipe_status.refresh()
             self.docker_status.refresh()
+            self.available_endpoints.refresh()
         ui.label("Konfiguration:").tailwind(SIMPLE_STYLE)
         if self.hive and self.hive.local_version != self.hive.remote_version:
 
