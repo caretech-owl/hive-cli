@@ -236,7 +236,7 @@ class DockerController:
         for composer_file in self.recipe.compose:
             cmd.extend(["-f", composer_file])
         cmd.extend(commands)
-        _LOGGER.debug("Running command: %", " ".join(cmd))
+        _LOGGER.debug("Running command: %s", " ".join(cmd))
 
         return subprocess.Popen(
             cmd,
