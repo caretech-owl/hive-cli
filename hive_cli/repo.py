@@ -1,18 +1,19 @@
-from datetime import datetime
 import logging
-from hive_cli.config import load_settings
-from git import Repo
-import yaml
+from datetime import datetime
 
+import yaml
+from git import Repo
+
+from hive_cli.config import load_settings
 from hive_cli.data import HiveData, Recipe
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def init_repo():
+def init_repo() -> None:
     repo_path = load_settings().hive_repo
     repo_url = load_settings().hive_url
-    _LOGGER.debug(f"Cloning {repo_url} to {repo_path}")
+    _LOGGER.debug("Cloning {%s} to {%s}", repo_url, repo_path)
     repo_path.mkdir()
     repo = Repo.init(repo_path)
     origin = repo.create_remote("origin", repo_url)
@@ -23,7 +24,7 @@ def init_repo():
     origin.pull()
 
 
-def update_repo():
+def update_repo() -> None:
     repo = Repo(load_settings().hive_repo)
     origin = repo.remote("origin")
     origin.fetch()
@@ -36,7 +37,7 @@ def get_data() -> HiveData | None:
         return None
 
     repo = Repo(settings.hive_repo)
-    _LOGGER.debug(f"Fetching origin from {settings.hive_url}")
+    _LOGGER.debug("Fetching origin from %s", {settings.hive_url})
     repo.remote("origin").fetch()
 
     recipe_file = settings.hive_repo / f"{settings.hive_id}.yml"
@@ -46,7 +47,7 @@ def get_data() -> HiveData | None:
             obj["path"] = recipe_file
             recipe = Recipe.model_validate(obj)
     else:
-        _LOGGER.warning(f"File {recipe_file.resolve()} not found.")
+        _LOGGER.warning("File %s not found.", recipe_file.resolve())
         recipe = None
 
     return HiveData(
