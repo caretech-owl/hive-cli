@@ -57,6 +57,7 @@ class Frontend:
 
     @ui.refreshable
     def repo_status(self) -> None:
+        self.docker.check_cli_update()
 
         if not self.settings.hive_repo.exists():
 
