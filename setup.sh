@@ -3,7 +3,7 @@
 func_def=$(cat <<EOF
 
 function hive_cli() {
-    SOCKET=\${DOCKER_SOCKET:-/var/run/docker.sock}
+    DOCKER_SOCKET=\${DOCKER_SOCKET:-/var/run/docker.sock}
     DOCKER_AUTH=\${DOCKER_AUTH:-\$HOME/.docker/config.json}
     HIVE_CLI_PORT=\${HIVE_CLI_PORT:-12121}
     if [ ! -f \${DOCKER_AUTH} ]; then
@@ -11,14 +11,14 @@ function hive_cli() {
         echo "Please set the DOCKER_AUTH environment variable manually."
         return 1
     fi
-    if [ -S \${SOCKET} ]; then
-        SOCKET_GID=\$(stat -c '%g' \${SOCKET})
+    if [ -S \${DOCKER_SOCKET} ]; then
+        DOCKER_SOCKET_GID=\$(stat -c '%g' \${DOCKER_SOCKET})
     else
-        SOCKET_GID=\${DOCKER_SOCKET_GID}
+        DOCKER_SOCKET_GID=\${DOCKER_SOCKET_GID}
     fi
-    if [ -z \${SOCKET_GID} ]; then
+    if [ -z \${DOCKER_SOCKET_GID} ]; then
         echo "❌ Could not determine docker socket location and id."
-        echo "Please set the DOCKER_SOCKET and DOCKER_GID environment variable manually."
+        echo "Please set the DOCKER_SOCKET and DOCKER_SOCKET_GID environment variable manually."
         return 1
     fi
     docker login ghcr.io
@@ -26,10 +26,10 @@ function hive_cli() {
     docker run -ti --rm \\
      -p \${HIVE_CLI_PORT}:443 \\
      -v hive:/workspace/hive \\
-     -v /var/run/docker.sock:/var/run/docker.sock \\
+     -v \${DOCKER_SOCKET}:/var/run/docker.sock \\
      -v \${DOCKER_AUTH}:/docker_config.json \\
      -e UID=\$(id -u) \\
-     -e GID=\${SOCKET_GID} \\
+     -e GID=\${DOCKER_SOCKET_GID} \\
      ghcr.io/caretech-owl/hive-cli
     res_code=\$?
     echo "Exited with code \${res_code}"
