@@ -78,7 +78,18 @@ class Frontend:
             self.docker_status.refresh()
             self.available_endpoints.refresh()
         ui.label("Konfiguration:").tailwind(SIMPLE_STYLE)
-        if self.hive and self.hive.local_version != self.hive.remote_version:
+        if self.hive and self.hive.local_changes:
+            # def on_commit_changes() -> None:
+            #     commit_changes()
+            #     self.repo_status.refresh()
+            def on_reset_repo() -> None:
+                reset_repo()
+                self.repo_status.refresh()
+
+            ui.label("Lokale Änderungen").tailwind(INFO_STYLE)
+            # ui.button("Commit", icon="upgrade").on_click(on_commit_changes)
+            ui.button("Reset", icon="restore").on_click(on_reset_repo)
+        elif self.hive and self.hive.local_version != self.hive.remote_version:
 
             def on_update_repo() -> None:
                 update_repo()
@@ -88,16 +99,6 @@ class Frontend:
 
             ui.label("Update verfügbar").tailwind(INFO_STYLE)
             ui.button("Update", icon="cloud_download").on_click(on_update_repo)
-        elif self.hive and self.hive.local_changes:
-            # def on_commit_changes() -> None:
-            #     commit_changes()
-            #     self.repo_status.refresh()
-            def on_reset_repo() -> None:
-                reset_repo()
-                self.repo_status.refresh()
-            ui.label("Lokale Änderungen").tailwind(INFO_STYLE)
-            # ui.button("Commit", icon="upgrade").on_click(on_commit_changes)
-            ui.button("Reset", icon="restore").on_click(on_reset_repo)
         else:
             ui.label("Aktuell").tailwind(SIMPLE_STYLE)
             ui.button("Check", icon="refresh").on_click(self.repo_status.refresh)
@@ -125,9 +126,7 @@ class Frontend:
     @ui.refreshable
     def recipe_status(self) -> None:
         if self.hive and self.hive.recipe:
-            with ui.expansion("Recipe", icon="receipt_long").classes(
-                "w-full"
-            ):
+            with ui.expansion("Recipe", icon="receipt_long").classes("w-full"):
                 ui.label(self.hive.recipe.path.name).tailwind(HEADER_STYLE)
                 ui.json_editor(
                     {
@@ -154,9 +153,18 @@ class Frontend:
                         ),
                     ).tailwind("w-full")
         else:
+
+            def on_create_recipe() -> None:
+                recipe = Recipe(
+                    path=self.settings.hive_repo / f"{self.settings.hive_id}.yaml"
+                )
+                recipe.save()
+                self.repo_status.refresh()
+
             ui.label(f"⚠️ No recipe for {self.settings.hive_id} found!").tailwind(
                 WARNING_STYLE
             )
+            ui.button("Create", icon="refresh").on_click(on_create_recipe)
 
     @ui.refreshable
     def available_endpoints(self) -> None:
