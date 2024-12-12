@@ -39,7 +39,7 @@ INFO:     Application startup complete.
 INFO:     Uvicorn running on https://0.0.0.0:443 (Press CTRL+C to quit)
 ```
 
-`hive-cli` should now be available at https://0.0.0.0 or https://localhost or https://127.0.0.1 with a self-signed certificate.
+`hive-cli` should now be available at https://0.0.0.0:12121 or https://localhost:12121 or https://127.0.0.1:12121 with a self-signed certificate.
 
 ## Concept
 
