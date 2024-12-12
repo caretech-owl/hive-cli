@@ -5,6 +5,7 @@ func_def=$(cat <<EOF
 function hive_cli() {
     SOCKET=\${DOCKER_SOCKET:-/var/run/docker.sock}
     DOCKER_AUTH=\${DOCKER_AUTH:-\$HOME/.docker/config.json}
+    HIVE_CLI_PORT=\${HIVE_CLI_PORT:-12121}
     if [ ! -f \${DOCKER_AUTH} ]; then
         echo "❌ Could not find docker auth file at \${DOCKER_AUTH}."
         echo "Please set the DOCKER_AUTH environment variable manually."
@@ -23,7 +24,7 @@ function hive_cli() {
     docker login ghcr.io
     docker volume create hive > /dev/null
     docker run -ti --rm \\
-     -p 443:443 \\
+     -p \${HIVE_CLI_PORT}:443 \\
      -v hive:/workspace/hive \\
      -v /var/run/docker.sock:/var/run/docker.sock \\
      -v \${DOCKER_AUTH}:/docker_config.json \\
