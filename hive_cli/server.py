@@ -58,7 +58,7 @@ def prod() -> None:
     uvicorn.run(
         app,
         host=os.getenv("HIVE_HOST", "localhost"),
-        port=os.getenv("HIVE_PORT", 443),
+        port=int(os.getenv("HIVE_PORT", 443)),
         ssl_keyfile=settings.server.ssl.key_path,
         ssl_certfile=settings.server.ssl.cert_path,
         ssl_keyfile_password=settings.server.ssl.passphrase,
