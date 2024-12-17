@@ -1,3 +1,6 @@
+from pathlib import Path
+
+
 HEADER_STYLE = "text-lg"
 WARNING_STYLE = (
     "bg-rose-500 text-white py-2 px-4 rounded-lg text-center text-lg font-bold"
@@ -30,3 +33,15 @@ ICO = """
     </defs>
 </svg>
 """
+
+
+
+def list_files(startpath: Path) -> list[tuple[int, str]]:
+    out = []
+    for root, _, files in startpath.walk():
+        if any(p.startswith(".git") or p.startswith("__") for p in root.parts):
+            continue
+        level = root.relative_to(startpath).parts.__len__()
+        out.append((level, root.name))
+        out.extend([(level + 1, f) for f in files])
+    return out
