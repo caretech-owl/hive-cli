@@ -13,6 +13,6 @@ if repo.is_dirty() or repo.untracked_files:
 try:
     origin: Remote = repo.remote("origin")
     repo.create_tag(f"v{__version__}")
-    origin.push("origin", tags=True)
+    origin.push(tags=True)
 except ValueError as e:
     _LOGGER.error("Errro: %s", e)
