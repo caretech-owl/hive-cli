@@ -1,6 +1,6 @@
 [project]
 name = "hive-cli"
-version = "0.4.4"
+version = "0.5.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -31,6 +31,7 @@ prod.script = "hive_cli.server:prod()"
 dev = "uv run dev.py"
 lint = "uv run mypy hive_cli"
 test = "uv run pytest tests"
+release = "uv run release.py"
 
 # Without build system declaration the package cannot be imported
 # https://github.com/astral-sh/uv/issues/9291
@@ -74,4 +75,3 @@ unfixable = ["B"]
 # 3. Things to ignore
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101"] # assert is fine in pytest
-
