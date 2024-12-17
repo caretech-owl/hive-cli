@@ -40,8 +40,8 @@ function hive_cli() {
      -e UID=\$(id -u) \\
      -e GID=\${DOCKER_SOCKET_GID} \\
      -e HIVE_PORT=\${HIVE_PORT} \\
-     \${OPT_SEC_ID} \\
-     \${OPT_INPUT_DIR} \\
+     \${OPT_SEC_ID[@]} \\
+     \${OPT_INPUT_DIR[@]} \\
      ghcr.io/caretech-owl/hive-cli
     res_code=\$?
     echo "Exited with code \${res_code}"
