@@ -1,3 +1,21 @@
+## v0.5.0 (2024-12-17)
+
+### New feature:
+
+- add repo list to frontend([`fce9eaf`](https://github.com/caretech-owl/hive-cli/commit/fce9eaf853a7dbd3875cca83e4cb8f810fb2b6d2)) (by Alexander Neumann)
+- add list_files to styling([`29dc25e`](https://github.com/caretech-owl/hive-cli/commit/29dc25e4c9f893732176ef185f778984fc1bbcf5)) (by Alexander Neumann)
+- reset repo or crate branch from local changes([`4d88d5e`](https://github.com/caretech-owl/hive-cli/commit/4d88d5e94b516af014478a972de16e6cfeabbda3)) (by Alexander Neumann)
+- allow to create recipes and compose files from GUI([`cd6d955`](https://github.com/caretech-owl/hive-cli/commit/cd6d955176715b55e5781e5e0cef6972b63e7aec)) (by Alexander Neumann)
+- dont save computed/temp fields in recipe/compose([`95085fa`](https://github.com/caretech-owl/hive-cli/commit/95085faf0a71c405eb4c8ce131e0983c214c2f94)) (by Alexander Neumann)
+- add release script([`89af903`](https://github.com/caretech-owl/hive-cli/commit/89af90331c4be207dfcb9543edf748c91f83095c)) (by Alexander Neumann)
+- introduce HIVE_INPUT([`c80c233`](https://github.com/caretech-owl/hive-cli/commit/c80c233e290ff6a1a5f247d58554d6e1f4781cea)) (by Alexander Neumann)
+
+### Bugs fixed:
+
+- try/catch errors when checking container states([`c3a5d35`](https://github.com/caretech-owl/hive-cli/commit/c3a5d35f31e6fe03ccdad95c9353c235b78d13a1)) (by Alexander Neumann)
+- consume whole array with [@] in shell script([`8a5f48f`](https://github.com/caretech-owl/hive-cli/commit/8a5f48f356b592e8b4eb36d68f112194ffab88d1)) (by Alexander Neumann)
+- update package version([`7ebdcb8`](https://github.com/caretech-owl/hive-cli/commit/7ebdcb8dad945167c28d852294d39a4b2574aea9)) (by Alexander Neumann)
+
 ## v0.4.3 (2024-12-12)
 
 ### New feature:
