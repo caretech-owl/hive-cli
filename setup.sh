@@ -5,11 +5,6 @@ func_def=$(cat <<EOF
 function hive_cli() {
     DOCKER_SOCKET=\${DOCKER_SOCKET:-/var/run/docker.sock}
     DOCKER_AUTH=\${DOCKER_AUTH:-\$HOME/.docker/config.json}
-    if [ -z \${DOCKER_EXTRA_ARGS} ]; then
-        if [ \$(grep -c "podman.sock" <<< "\$DOCKER_SOCKET") -eq 1 ]; then
-            DOCKER_EXTRA_ARGS="--userns=keep-id --security-opt label:type:container_runtime_t"
-        fi
-    fi
     HIVE_PORT=\${HIVE_PORT:-12121}
     if [ ! -f \${DOCKER_AUTH} ]; then
         echo "❌ Could not find docker auth file at \${DOCKER_AUTH}."
@@ -18,13 +13,22 @@ function hive_cli() {
     fi
     if [ -S \${DOCKER_SOCKET} ]; then
         DOCKER_SOCKET_GID=\$(stat -c '%g' \${DOCKER_SOCKET})
-    else
-        DOCKER_SOCKET_GID=\${DOCKER_SOCKET_GID}
+        if [ \$(grep -c "podman.sock" <<< "\${DOCKER_SOCKET}") -eq 1 ]; then
+            OPT_SEC_ID=('--userns=keep-id'\\
+                '--security-opt'\\
+                'label:type:container_runtime_t'\\
+            )
+        fi
     fi
     if [ -z \${DOCKER_SOCKET_GID} ]; then
         echo "❌ Could not determine docker socket location and id."
         echo "Please set the DOCKER_SOCKET and DOCKER_SOCKET_GID environment variable manually."
         return 1
+    fi
+    if [ -d "\${HIVE_INPUT}" ]; then
+        OPT_INPUT_DIR=('-v'\\
+            \${HIVE_INPUT}:/workspace/input\\
+        )
     fi
     docker login ghcr.io
     docker volume create hive > /dev/null
@@ -36,7 +40,8 @@ function hive_cli() {
      -e UID=\$(id -u) \\
      -e GID=\${DOCKER_SOCKET_GID} \\
      -e HIVE_PORT=\${HIVE_PORT} \\
-     \${DOCKER_EXTRA_ARGS} \\
+     \${OPT_SEC_ID} \\
+     \${OPT_INPUT_DIR} \\
      ghcr.io/caretech-owl/hive-cli
     res_code=\$?
     echo "Exited with code \${res_code}"
