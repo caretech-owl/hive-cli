@@ -1,6 +1,7 @@
 import logging
 import logging.handlers
 import os
+import re
 import signal
 from functools import partial
 from logging.handlers import MemoryHandler
@@ -16,7 +17,7 @@ from hive_cli import __version__
 from hive_cli.config import Settings
 from hive_cli.data import ComposerFile, Recipe
 from hive_cli.docker import DockerController, DockerState, UpdateState
-from hive_cli.repo import get_data, init_repo, reset_repo, update_repo
+from hive_cli.repo import commit_changes, get_data, init_repo, reset_repo, update_repo
 from hive_cli.styling import (
     DEACTIVATED_STYLE,
     HEADER_STYLE,
@@ -31,6 +32,8 @@ from hive_cli.styling import (
 
 if TYPE_CHECKING:
     from hive_cli.data import HiveData
+
+COMPOSE_FILE_PATTERN = r"compose/[a-zA-Z0-9_-]+\.yml"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -48,6 +51,7 @@ class Frontend:
         self.log_timer = ui.timer(30, self.log_status.refresh, active=False)
         self.log_num_entries_cli = 20
         self.log_num_entries_com = 20
+        self._recipe_expanded = False
         self.log_handler: MemoryHandler | None = next(
             (
                 handler
@@ -79,15 +83,17 @@ class Frontend:
             self.available_endpoints.refresh()
         ui.label("Konfiguration:").tailwind(SIMPLE_STYLE)
         if self.hive and self.hive.local_changes:
-            # def on_commit_changes() -> None:
-            #     commit_changes()
-            #     self.repo_status.refresh()
+
+            def on_commit_changes() -> None:
+                commit_changes()
+                self.repo_status.refresh()
+
             def on_reset_repo() -> None:
                 reset_repo()
                 self.repo_status.refresh()
 
             ui.label("Lokale Änderungen").tailwind(INFO_STYLE)
-            # ui.button("Commit", icon="upgrade").on_click(on_commit_changes)
+            ui.button("Commit", icon="upgrade").on_click(on_commit_changes)
             ui.button("Reset", icon="restore").on_click(on_reset_repo)
         elif self.hive and self.hive.local_version != self.hive.remote_version:
 
@@ -106,6 +112,15 @@ class Frontend:
     def _update_recipe(self, evt: JsonEditorChangeEventArguments) -> None:
         try:
             self.hive.recipe = Recipe.model_validate_json(evt.content["json"])
+            for compose in self.hive.recipe.compose:
+
+                pattern = r"compose/[a-zA-Z0-9_-]+\.yml"
+                if re.match(COMPOSE_FILE_PATTERN, compose) is None:
+                    msg = (
+                        f"Invalid compose path {compose}. "
+                        f"Path must match '{COMPOSE_FILE_PATTERN}'."
+                    )
+                    raise ValueError(msg)
             self.hive.recipe.save()
             self.repo_status.refresh()
             ui.notification("Recipe updated", type="positive")
@@ -126,7 +141,14 @@ class Frontend:
     @ui.refreshable
     def recipe_status(self) -> None:
         if self.hive and self.hive.recipe:
-            with ui.expansion("Recipe", icon="receipt_long").classes("w-full"):
+            with ui.expansion(
+                "Recipe",
+                icon="receipt_long",
+                value=self._recipe_expanded,
+                on_value_change=lambda evt: setattr(
+                    self, "_recipe_expanded", evt.value
+                ),
+            ).classes("w-full"):
                 ui.label(self.hive.recipe.path.name).tailwind(HEADER_STYLE)
                 ui.json_editor(
                     {
@@ -139,32 +161,49 @@ class Frontend:
                     on_change=self._update_recipe,
                 ).tailwind("w-full")
                 for path, compose in self.hive.recipe.composer_files().items():
-                    ui.label(path.name).tailwind(SIMPLE_STYLE)
-                    ui.json_editor(
-                        {
-                            "content": {
-                                "json": compose.model_dump_json(
-                                    indent=2, exclude_none=True
-                                )
-                            }
-                        },
-                        on_change=lambda evt, path=path: self._update_compose(
-                            evt, path=path
-                        ),
-                    ).tailwind("w-full")
+                    if compose:
+                        ui.label(path.name).tailwind(SIMPLE_STYLE)
+                        ui.json_editor(
+                            {
+                                "content": {
+                                    "json": compose.model_dump_json(
+                                        indent=2, exclude_none=True
+                                    )
+                                }
+                            },
+                            on_change=lambda evt, path=path: self._update_compose(
+                                evt, path=path
+                            ),
+                        ).tailwind("w-full")
+                    else:
+
+                        def on_create_compose(path: Path) -> None:
+                            _LOGGER.info("Creating compose for %s", path)
+                            compose = ComposerFile(services={})
+                            compose.save(path)
+                            self.hive.recipe.save()
+                            self.repo_status.refresh()
+
+                        with ui.row():
+                            ui.label(f"{path.name} not found").tailwind(WARNING_STYLE)
+                            ui.button("Create", icon="refresh").on_click(
+                                partial(on_create_compose, path)
+                            )
         else:
 
             def on_create_recipe() -> None:
+                _LOGGER.info("Creating recipe for %s", self.settings.hive_id)
                 recipe = Recipe(
-                    path=self.settings.hive_repo / f"{self.settings.hive_id}.yaml"
+                    path=self.settings.hive_repo / f"{self.settings.hive_id}.yml"
                 )
                 recipe.save()
                 self.repo_status.refresh()
 
-            ui.label(f"⚠️ No recipe for {self.settings.hive_id} found!").tailwind(
-                WARNING_STYLE
-            )
-            ui.button("Create", icon="refresh").on_click(on_create_recipe)
+            with ui.row():
+                ui.label(f"⚠️ No recipe for {self.settings.hive_id} found!").tailwind(
+                    WARNING_STYLE
+                )
+                ui.button("Create", icon="refresh").on_click(on_create_recipe)
 
     @ui.refreshable
     def available_endpoints(self) -> None:
