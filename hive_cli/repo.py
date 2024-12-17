@@ -25,24 +25,30 @@ def init_repo() -> None:
 
 
 def update_repo() -> None:
+    reset_repo()
     repo = Repo(load_settings().hive_repo)
-    origin = repo.remote("origin")
-    origin.fetch()
-    if repo.is_dirty():
-        reset_repo()
-    origin.pull()
+    repo.remote("origin").fetch()
+    repo.remote("origin").pull()
 
 
 def reset_repo() -> None:
+    _LOGGER.debug("Resetting repo to origin/main")
     repo = Repo(load_settings().hive_repo)
+    for untracked in repo.untracked_files:
+        (load_settings().hive_repo / untracked).unlink()
     repo.head.reset(index=True, working_tree=True)
+    repo.heads.main.checkout()
 
 
 def commit_changes() -> None:
+    branch_name = f"{load_settings().hive_id[-6:]}-{int(datetime.now().timestamp())}"
+    _LOGGER.debug("Committing changes to remote branch %s", branch_name)
     repo = Repo(load_settings().hive_repo)
+    origin = repo.remote("origin")
+    repo.create_head(branch_name).checkout()
     repo.index.add("*")
     repo.index.commit("Changes made by hive-cli on " + datetime.now().isoformat())
-    repo.remote("origin").push()
+    origin.push(branch_name)
 
 
 def get_data() -> HiveData | None:
@@ -70,5 +76,5 @@ def get_data() -> HiveData | None:
             repo.remote().refs.main.commit.committed_date
         ),
         recipe=recipe,
-        local_changes=repo.is_dirty(),
+        local_changes=repo.is_dirty() or len(repo.untracked_files) > 0,
     )
