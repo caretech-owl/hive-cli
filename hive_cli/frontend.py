@@ -28,6 +28,7 @@ from hive_cli.styling import (
     SERVICE_ACTIVE_STYLE,
     SIMPLE_STYLE,
     WARNING_STYLE,
+    list_files,
 )
 
 if TYPE_CHECKING:
@@ -52,6 +53,7 @@ class Frontend:
         self.log_num_entries_cli = 20
         self.log_num_entries_com = 20
         self._recipe_expanded = False
+        self._repo_expanded = False
         self.log_handler: MemoryHandler | None = next(
             (
                 handler
@@ -81,6 +83,7 @@ class Frontend:
             self.recipe_status.refresh()
             self.docker_status.refresh()
             self.available_endpoints.refresh()
+            self.repo_list.refresh()
         ui.label("Konfiguration:").tailwind(SIMPLE_STYLE)
         if self.hive and self.hive.local_changes:
 
@@ -311,6 +314,27 @@ class Frontend:
             ui.spinner(size="lg")
 
     @ui.refreshable
+    def repo_list(self) -> None:
+        if (
+            self.settings
+            and self.settings.hive_repo
+            and self.settings.hive_repo.exists()
+        ):
+            with ui.expansion(
+                "Repository",
+                icon="folder",
+                value=self._repo_expanded,
+                on_value_change=lambda evt: setattr(self, "_repo_expanded", evt.value),
+            ).classes("w-full"):
+                for level, name in list_files(self.settings.hive_repo)[1:]:
+                    with ui.row():
+                        for _ in range(level - 2):
+                            ui.space()
+                        if level > 1:
+                            ui.label(">")
+                        ui.label(name)
+
+    @ui.refreshable
     def footer(self) -> None:
         label = ui.label(__version__)
         label.tailwind("text-gray-500 font-semibold")
@@ -362,6 +386,9 @@ class Frontend:
 
             # Recipe
             self.recipe_status()  # type: ignore[call-arg]
+
+            # Repo List
+            self.repo_list()  # type: ignore[call-arg]
 
             if not self.docker.images:
                 ui.label("No images found")
