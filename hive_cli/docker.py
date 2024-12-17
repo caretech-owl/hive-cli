@@ -136,10 +136,18 @@ class DockerController:
             return []
         cmd.extend(["ps", "--format", "json"])
         _LOGGER.debug("Running command: %s", " ".join(cmd))
-        res = subprocess.check_output(
-            cmd, cwd=self.recipe.path.parent, env=os.environ | self.recipe.environment
-        ).decode("utf-8")
-        return [ContainerState.model_validate_json(line) for line in res.splitlines()]
+        try:
+            res = subprocess.check_output(
+                cmd,
+                cwd=self.recipe.path.parent,
+                env=os.environ | self.recipe.environment,
+            ).decode("utf-8")
+            return [
+                ContainerState.model_validate_json(line) for line in res.splitlines()
+            ]
+        except Exception as e:
+            _LOGGER.error(e)
+            return []
 
     def get_container_logs(self, num_entries: int) -> list[str]:
         if self.recipe is None:
