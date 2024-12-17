@@ -3,7 +3,7 @@ from datetime import datetime
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, computed_field, field_serializer
+from pydantic import BaseModel, field_serializer
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -36,9 +36,9 @@ class ComposerFile(BaseModel):
     def save(self, path: Path) -> None:
         _LOGGER.info("Saving composer file to %s", path.absolute())
         with path.open("w") as f:
-            f.write(yaml.dump(self.model_dump(exclude_none=True)))
+            obj = self.model_dump(exclude_none=True)
+            f.write(yaml.dump(obj))
 
-    @computed_field  # type: ignore[prop-decorator]
     @property
     def images(self) -> list[str]:
         return [service.image for service in self.services.values() if service.image]
@@ -61,7 +61,7 @@ class Recipe(BaseModel):
     def serialize_path(self, path: Path) -> str:
         return path.absolute().as_posix()
 
-    def composer_files(self) -> dict[Path, ComposerFile]:
+    def composer_files(self) -> dict[Path, ComposerFile | None]:
         files = {}
         for local_path in self.compose:
             path = (
@@ -70,7 +70,7 @@ class Recipe(BaseModel):
                 else self.path.parent / local_path
             ).resolve()
             if not path.exists():
-                _LOGGER.warning("File %s not found.", path)
+                files[path] = None
                 continue
             with path.open("r") as f:
                 yaml_obj = yaml.safe_load(f)
@@ -80,7 +80,9 @@ class Recipe(BaseModel):
     def save(self) -> None:
         _LOGGER.info("Saving recipe to %s", self.path.absolute())
         with self.path.open("w") as f:
-            f.write(yaml.dump(self.model_dump(exclude_none=True)))
+            obj = self.model_dump(exclude_none=True)
+            del obj["path"]
+            f.write(yaml.dump(obj))
 
 
 class HiveData(BaseModel):
