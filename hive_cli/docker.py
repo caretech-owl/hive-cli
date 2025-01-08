@@ -112,11 +112,9 @@ class DockerController:
         if value is None:
             self.state = DockerState.NOT_CONFIGURED
         else:
-            self.state = (
-                DockerState.STOPPED
-                if len(self.get_container_states()) == 0
-                else DockerState.STARTED
-            )
+            self.state = DockerState.STOPPED
+            if self.get_container_states():
+                self.state = DockerState.STARTED
 
     def get_container_states(self) -> list[ContainerState]:
         if self.recipe is None:
@@ -147,6 +145,7 @@ class DockerController:
             ]
         except Exception as e:
             _LOGGER.error(e)
+            self.state = DockerState.UNKNOWN
             return []
 
     def get_container_logs(self, num_entries: int) -> list[str]:
@@ -231,6 +230,7 @@ class DockerController:
 
     def start(self) -> None:
         if self.state == DockerState.STOPPED:
+            _LOGGER.info("Starting Docker")
             self.state = DockerState.PULLING
             self._runner = Thread(target=self._task_start)
             self._runner.start()

@@ -1,5 +1,7 @@
 import logging
+import subprocess
 from datetime import datetime
+from pathlib import Path
 
 import yaml
 from git import Repo
@@ -29,6 +31,23 @@ def update_repo() -> None:
     repo = Repo(load_settings().hive_repo)
     repo.remote("origin").fetch()
     repo.remote("origin").pull()
+    repo.heads.main.checkout()
+
+
+def remote_changes(file_path: Path) -> bool:
+    cmd = [
+        "git",
+        "-C",
+        load_settings().hive_repo.as_posix(),
+        "diff",
+        "--quiet",
+        "origin/main",
+        "HEAD",
+        "--",
+        file_path.as_posix(),
+    ]
+    _LOGGER.debug("Running command %s", " ".join(cmd))
+    return subprocess.call(cmd) != 0
 
 
 def reset_repo() -> None:

@@ -17,7 +17,14 @@ from hive_cli import __version__
 from hive_cli.config import Settings
 from hive_cli.data import ComposerFile, Recipe
 from hive_cli.docker import DockerController, DockerState, UpdateState
-from hive_cli.repo import commit_changes, get_data, init_repo, reset_repo, update_repo
+from hive_cli.repo import (
+    commit_changes,
+    get_data,
+    init_repo,
+    remote_changes,
+    reset_repo,
+    update_repo,
+)
 from hive_cli.styling import (
     DEACTIVATED_STYLE,
     HEADER_STYLE,
@@ -98,16 +105,22 @@ class Frontend:
             ui.label("Lokale Änderungen").tailwind(INFO_STYLE)
             ui.button("Commit", icon="upgrade").on_click(on_commit_changes)
             ui.button("Reset", icon="restore").on_click(on_reset_repo)
-        elif self.hive and self.hive.local_version != self.hive.remote_version:
-
-            def on_update_repo() -> None:
-                update_repo()
-                if self.docker.state == DockerState.STARTED:
-                    self.docker.stop()
-                    self.docker.start()
-
-            ui.label("Update verfügbar").tailwind(INFO_STYLE)
-            ui.button("Update", icon="cloud_download").on_click(on_update_repo)
+        elif (
+            self.hive
+            and self.hive.recipe
+            and not self.hive.local_changes
+            and any(
+                remote_changes(p)
+                for p in [self.hive.recipe.path]
+                + list(self.hive.recipe.composer_files().keys())
+            )
+        ):
+            _LOGGER.info("Recipe was changed remotely. Updating...")
+            update_repo()
+            if self.docker.state == DockerState.STARTED:
+                self.docker.stop()
+                self.docker.start()
+            self.repo_status.refresh()
         else:
             ui.label("Aktuell").tailwind(SIMPLE_STYLE)
             ui.button("Check", icon="refresh").on_click(self.repo_status.refresh)
@@ -192,6 +205,9 @@ class Frontend:
                             ui.button("Create", icon="refresh").on_click(
                                 partial(on_create_compose, path)
                             )
+        elif remote_changes(self.settings.hive_repo / f"{self.settings.hive_id}.yml"):
+            update_repo()
+            self.repo_status.refresh()
         else:
 
             def on_create_recipe() -> None:
