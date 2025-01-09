@@ -1,11 +1,16 @@
+import enum
 import logging
-from datetime import datetime
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, field_serializer
+from psygnal import EventedModel
+from pydantic import BaseModel, Field, field_serializer
+
+from hive_cli.config import Settings
 
 _LOGGER = logging.getLogger(__name__)
+
+COMPOSE_FILE_PATTERN = r"compose/[a-zA-Z0-9_-]+\.yml"
 
 
 class ComposerService(BaseModel):
@@ -85,8 +90,59 @@ class Recipe(BaseModel):
             f.write(yaml.dump(obj))
 
 
-class HiveData(BaseModel):
-    local_version: datetime
-    remote_version: datetime
-    local_changes: bool = False
-    recipe: Recipe | None
+class RepoState(enum.Enum):
+    UNKNOWN = enum.auto()
+    NOT_FOUND = enum.auto()
+    UP_TO_DATE = enum.auto()
+    UPDATE_AVAILABLE = enum.auto()
+    UPDATING = enum.auto()
+    CHANGED_LOCALLY = enum.auto()
+
+
+class DockerState(enum.Enum):
+    UNKNOWN = enum.auto()
+    NOT_AVAILABLE = enum.auto()
+    NOT_CONFIGURED = enum.auto()
+    STOPPED = enum.auto()
+    PULLING = enum.auto()
+    STARTING = enum.auto()
+    STARTED = enum.auto()
+    STOPPING = enum.auto()
+
+
+class ClientState(enum.Enum):
+    UNKNOWN = enum.auto()
+    UP_TO_DATE = enum.auto()
+    UPDATE_AVAILABLE = enum.auto()
+    UPDATING = enum.auto()
+    RESTART_REQUIRED = enum.auto()
+
+
+class ContainerState(BaseModel):
+    command: str = Field(alias="Command")
+    created_at: str = Field(alias="CreatedAt")
+    exit_code: int = Field(alias="ExitCode")
+    health: str = Field(alias="Health")
+    id: str = Field(alias="ID")
+    image: str = Field(alias="Image")
+    local_volumes: str = Field(alias="LocalVolumes")
+    mounts: str = Field(alias="Mounts")
+    name: str = Field(alias="Name")
+    # networks: str = Field(alias="Networks")
+    # ports: str = Field(alias="Ports")
+    status: str = Field(alias="Status")
+    state: str = Field(alias="State")
+    service: str = Field(alias="Service")
+
+
+class HiveData(EventedModel):
+    settings: Settings
+    repo_state: RepoState = RepoState.UNKNOWN
+    docker_state: DockerState = DockerState.UNKNOWN
+    client_state: ClientState = ClientState.UNKNOWN
+    container_states: list[ContainerState] = []
+    container_logs: list[str] = []
+    container_logs_num: int = 20
+    client_logs: list[str] = []
+    client_logs_num: int = 20
+    recipe: Recipe | None = None

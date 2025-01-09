@@ -7,7 +7,8 @@ import uvicorn
 from fastapi import FastAPI
 
 from hive_cli.config import load_settings
-from hive_cli.docker import DockerController
+from hive_cli.controller import Controller
+from hive_cli.data import HiveData
 from hive_cli.frontend import Frontend
 
 _LOGGER = logging.getLogger(__name__)
@@ -50,20 +51,21 @@ def prod() -> None:
         _LOGGER.info("No SSL certificate found. Generating a new one.")
         generate_cert()
 
+    hive = HiveData(settings=settings)
     app = FastAPI()
-    frontend = Frontend(settings, DockerController(settings), app)
-    frontend.setup_ui()
-
-    _LOGGER.info("Starting server.")
-    uvicorn.run(
-        app,
-        host=os.getenv("HIVE_HOST", "localhost"),
-        port=int(os.getenv("HIVE_PORT", 443)),
-        ssl_keyfile=settings.server.ssl.key_path,
-        ssl_certfile=settings.server.ssl.cert_path,
-        ssl_keyfile_password=settings.server.ssl.passphrase,
-        timeout_graceful_shutdown=1,
-    )
+    frontend = Frontend(hive)
+    with Controller(frontend, hive):
+        frontend.setup_ui()
+        _LOGGER.info("Starting server.")
+        uvicorn.run(
+            app,
+            host=os.getenv("HIVE_HOST", "localhost"),
+            port=int(os.getenv("HIVE_PORT", 443)),
+            ssl_keyfile=settings.server.ssl.key_path,
+            ssl_certfile=settings.server.ssl.cert_path,
+            ssl_keyfile_password=settings.server.ssl.passphrase,
+            timeout_graceful_shutdown=1,
+        )
     _LOGGER.info("Shutting down.")
     if (settings.hive_repo.parent / "_restart").exists():
         (settings.hive_repo.parent / "_restart").unlink()

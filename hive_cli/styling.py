@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 HEADER_STYLE = "text-lg"
 WARNING_STYLE = (
     "bg-rose-500 text-white py-2 px-4 rounded-lg text-center text-lg font-bold"
@@ -22,6 +21,7 @@ PENDING_STYLE = (
 UPDATE_STYLE = (
     "bg-purple-500 text-white py-2 px-4 rounded-lg text-center text-lg font-bold"
 )
+TEXT_INFO_STYLE = "text-sm text-gray-500"
 
 ICO = """
 <svg width="100%" height="100%" viewBox="0 0 320 320" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
@@ -33,7 +33,6 @@ ICO = """
     </defs>
 </svg>
 """
-
 
 
 def list_files(startpath: Path) -> list[tuple[int, str]]:

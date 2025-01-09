@@ -4,27 +4,17 @@ import os
 import re
 import signal
 from functools import partial
-from logging.handlers import MemoryHandler
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import FastAPI
-from nicegui import app as ui_app
 from nicegui import ui
-from nicegui.events import JsonEditorChangeEventArguments, ValueChangeEventArguments
+from nicegui.events import ValueChangeEventArguments
+from psygnal import Signal
 
 from hive_cli import __version__
-from hive_cli.config import Settings
-from hive_cli.data import ComposerFile, Recipe
-from hive_cli.docker import DockerController, DockerState, UpdateState
-from hive_cli.repo import (
-    commit_changes,
-    get_data,
-    init_repo,
-    remote_changes,
-    reset_repo,
-    update_repo,
-)
+from hive_cli.data import ClientState, ComposerFile, HiveData, RepoState
+from hive_cli.docker import DockerState
 from hive_cli.styling import (
     DEACTIVATED_STYLE,
     HEADER_STYLE,
@@ -34,129 +24,93 @@ from hive_cli.styling import (
     PENDING_STYLE,
     SERVICE_ACTIVE_STYLE,
     SIMPLE_STYLE,
+    TEXT_INFO_STYLE,
     WARNING_STYLE,
     list_files,
 )
 
 if TYPE_CHECKING:
-    from hive_cli.data import HiveData
-
-COMPOSE_FILE_PATTERN = r"compose/[a-zA-Z0-9_-]+\.yml"
+    pass
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class FrontendEvent:
+    initialize_repo = Signal()
+    commit_changes = Signal()
+    reset_repo = Signal()
+    create_recipe = Signal()
+    save_recipe = Signal(str)
+    save_compose = Signal(str, Path)
+    change_num_log_container = Signal(int)
+    change_num_log_cli = Signal(int)
+    update = Signal()
+    update_client = Signal()
+    update_recipe = Signal()
+    save_settings = Signal()
+    start_docker = Signal()
+    stop_docker = Signal()
 
 
 class Frontend:
 
     def __init__(
-        self, settings: Settings, docker: DockerController, app: FastAPI | None = None
+        self,
+        hive: HiveData,
+        app: FastAPI | None = None,
     ) -> None:
-        self.settings = settings
-        self.docker = docker
-        self._with_app = app is not None
-        self.app = app or ui_app
-        self.hive: HiveData | None = None
+        self.app = app
+        self.hive = hive
         self.log_timer = ui.timer(30, self.log_status.refresh, active=False)
         self.log_num_entries_cli = 20
         self.log_num_entries_com = 20
         self._recipe_expanded = False
         self._repo_expanded = False
-        self.log_handler: MemoryHandler | None = next(
-            (
-                handler
-                for handler in logging.getLogger("hive_cli").handlers
-                if isinstance(handler, MemoryHandler)
-            ),
-            None,
+        self.events = FrontendEvent()
+        self.hive.events.recipe.connect(lambda _: self.recipe_status.refresh())
+        self.hive.events.container_states.connect(
+            lambda _: self.container_status.refresh()
         )
+        self.hive.events.docker_state.connect(lambda _: self._on_docker_state_change())
+        self.hive.events.client_state.connect(lambda _: self._on_cli_state_change())
+        self.hive.events.repo_state.connect(lambda _: self.repo_status.refresh())
+
+    def notify(self, msg: str, type: str = "info") -> None:
+        ui.notification(msg, type=type)
 
     @ui.refreshable
     def repo_status(self) -> None:
-        self.docker.check_cli_update()
-
-        if not self.settings.hive_repo.exists():
-
-            def on_init_repo() -> None:
-                init_repo()
-                self.repo_status.refresh()
-
+        if self.hive.repo_state == RepoState.NOT_FOUND:
             ui.label("Repository not initialized").tailwind(WARNING_STYLE)
-            ui.button("Initialize").on_click(on_init_repo)
+            ui.button("Initialize").on_click(self.events.initialize_repo.emit)
             return
 
-        self.hive = get_data()
-        if self.hive:
-            self.docker.recipe = self.hive.recipe
-            self.recipe_status.refresh()
-            self.docker_status.refresh()
-            self.available_endpoints.refresh()
-            self.repo_list.refresh()
         ui.label("Konfiguration:").tailwind(SIMPLE_STYLE)
-        if self.hive and self.hive.local_changes:
-
-            def on_commit_changes() -> None:
-                commit_changes()
-                self.repo_status.refresh()
-
-            def on_reset_repo() -> None:
-                reset_repo()
-                self.repo_status.refresh()
-
+        if self.hive.repo_state == RepoState.CHANGED_LOCALLY:
             ui.label("Lokale Änderungen").tailwind(INFO_STYLE)
-            ui.button("Commit", icon="upgrade").on_click(on_commit_changes)
-            ui.button("Reset", icon="restore").on_click(on_reset_repo)
-        elif (
-            self.hive
-            and self.hive.recipe
-            and not self.hive.local_changes
-            and any(
-                remote_changes(p)
-                for p in [self.hive.recipe.path]
-                + list(self.hive.recipe.composer_files().keys())
+            ui.button("Commit", icon="upgrade").on_click(
+                lambda _: self.events.commit_changes.emit()
             )
-        ):
-            _LOGGER.info("Recipe was changed remotely. Updating...")
-            update_repo()
-            if self.docker.state == DockerState.STARTED:
-                self.docker.stop()
-                self.docker.start()
-            self.repo_status.refresh()
+            ui.button("Reset", icon="restore").on_click(
+                lambda _: self.events.reset_repo.emit()
+            )
+        elif self.hive.repo_state == RepoState.UPDATE_AVAILABLE:
+            ui.label("Update Available").tailwind(PENDING_STYLE)
+            if not self.hive.settings.auto_update_recipe:
+                ui.button("Update", icon="refresh").on_click(
+                    lambda _: self.events.update_recipe.emit()
+                )
+        elif self.hive.repo_state == RepoState.UPDATING:
+            ui.label("Updating").tailwind(PENDING_STYLE)
         else:
-            ui.label("Aktuell").tailwind(SIMPLE_STYLE)
-            ui.button("Check", icon="refresh").on_click(self.repo_status.refresh)
-
-    def _update_recipe(self, evt: JsonEditorChangeEventArguments) -> None:
-        try:
-            self.hive.recipe = Recipe.model_validate_json(evt.content["json"])
-            for compose in self.hive.recipe.compose:
-
-                pattern = r"compose/[a-zA-Z0-9_-]+\.yml"
-                if re.match(COMPOSE_FILE_PATTERN, compose) is None:
-                    msg = (
-                        f"Invalid compose path {compose}. "
-                        f"Path must match '{COMPOSE_FILE_PATTERN}'."
-                    )
-                    raise ValueError(msg)
-            self.hive.recipe.save()
-            self.repo_status.refresh()
-            ui.notification("Recipe updated", type="positive")
-        except Exception as e:
-            _LOGGER.error("Error parsing recipe: %s", e)
-            ui.notification(str(e), type="negative")
-
-    def _update_compose(self, evt: JsonEditorChangeEventArguments, path: Path) -> None:
-        try:
-            compose_file = ComposerFile.model_validate_json(evt.content["json"])
-            compose_file.save(path)
-            self.repo_status.refresh()
-            ui.notification("Compose file updated", type="positive")
-        except Exception as e:
-            _LOGGER.error("Error parsing compose: %s", e)
-            ui.notification(str(e), type="negative")
+            ui.label("Aktuell").tailwind(INFO_STYLE)
+            ui.button("Check", icon="refresh").on_click(
+                lambda _: self.events.update.emit()
+            )
 
     @ui.refreshable
     def recipe_status(self) -> None:
-        if self.hive and self.hive.recipe:
+        if self.hive.recipe:
             with ui.expansion(
                 "Recipe",
                 icon="receipt_long",
@@ -166,15 +120,22 @@ class Frontend:
                 ),
             ).classes("w-full"):
                 ui.label(self.hive.recipe.path.name).tailwind(HEADER_STYLE)
+                if self.hive.docker_state != DockerState.STOPPED:
+                    ui.label("Recipe is read-only when Docker is not stopped").tailwind(
+                        TEXT_INFO_STYLE
+                    )
                 ui.json_editor(
                     {
                         "content": {
                             "json": self.hive.recipe.model_dump_json(
                                 indent=2, exclude_none=True
                             )
-                        }
+                        },
+                        "readOnly": self.hive.docker_state != DockerState.STOPPED,
                     },
-                    on_change=self._update_recipe,
+                    on_change=lambda evt: self.events.save_recipe.emit(
+                        evt.content["json"]
+                    ),
                 ).tailwind("w-full")
                 for path, compose in self.hive.recipe.composer_files().items():
                     if compose:
@@ -185,10 +146,14 @@ class Frontend:
                                     "json": compose.model_dump_json(
                                         indent=2, exclude_none=True
                                     )
-                                }
+                                },
+                                "readOnly": self.hive.docker_state
+                                != DockerState.STOPPED,
                             },
-                            on_change=lambda evt, path=path: self._update_compose(
-                                evt, path=path
+                            on_change=(
+                                lambda evt, path=path: self.events.save_compose.emit(
+                                    evt.content["json"], path
+                                )
                             ),
                         ).tailwind("w-full")
                     else:
@@ -205,28 +170,18 @@ class Frontend:
                             ui.button("Create", icon="refresh").on_click(
                                 partial(on_create_compose, path)
                             )
-        elif remote_changes(self.settings.hive_repo / f"{self.settings.hive_id}.yml"):
-            update_repo()
-            self.repo_status.refresh()
         else:
-
-            def on_create_recipe() -> None:
-                _LOGGER.info("Creating recipe for %s", self.settings.hive_id)
-                recipe = Recipe(
-                    path=self.settings.hive_repo / f"{self.settings.hive_id}.yml"
-                )
-                recipe.save()
-                self.repo_status.refresh()
-
             with ui.row():
-                ui.label(f"⚠️ No recipe for {self.settings.hive_id} found!").tailwind(
-                    WARNING_STYLE
+                ui.label(
+                    f"⚠️ No recipe for {self.hive.settings.hive_id} found!"
+                ).tailwind(WARNING_STYLE)
+                ui.button("Create", icon="refresh").on_click(
+                    lambda _: self.events.create_recipe.emit()
                 )
-                ui.button("Create", icon="refresh").on_click(on_create_recipe)
 
     @ui.refreshable
     def available_endpoints(self) -> None:
-        if self.hive and self.hive.recipe and self.hive.recipe.endpoints:
+        if self.hive.recipe and self.hive.recipe.endpoints:
             with ui.row():
                 for endpoint in self.hive.recipe.endpoints:
                     button = ui.button(
@@ -238,26 +193,25 @@ class Frontend:
                         icon=endpoint.icon,
                     )
                     button.tailwind(SERVICE_ACTIVE_STYLE)
-                    if self.docker.state != DockerState.STARTED:
+                    if self.hive.docker_state != DockerState.STARTED:
                         button.disable()
 
     @ui.refreshable
     def container_status(self) -> None:
         ui.label("Container List").tailwind(HEADER_STYLE)
-
-        container_states = self.docker.get_container_states()
+        states = self.hive.container_states
         labels = ["State", "Name", "Image", "Status"]
-        if container_states:
+        if states:
             with ui.scroll_area().classes("grow"), ui.grid(columns=len(labels)):
                 for label in labels:
                     ui.label(label)
-                for container in container_states:
+                for container in states:
                     ui.label("🟢" if container.state == "running" else "🟡")
                     ui.label(container.name)
                     ui.label(container.image)
                     ui.label(container.status)
         else:
-            ui.label("No running container found")
+            ui.label("No running container found").tailwind(TEXT_INFO_STYLE)
 
     def change_log_num_entries_cli(self, evt: ValueChangeEventArguments) -> None:
         self.log_num_entries_cli = evt.value
@@ -269,7 +223,6 @@ class Frontend:
 
     @ui.refreshable
     def log_status(self) -> None:
-        self.container_status.refresh()
         with ui.row().classes("flex items-center"):
             ui.label("Container Log").tailwind(HEADER_STYLE)
             ui.select(
@@ -278,37 +231,39 @@ class Frontend:
                 on_change=self.change_log_num_entries_com,
             )
             ui.label("Einträge").tailwind(HEADER_STYLE)
-        with (
-            ui.scroll_area().classes("grow").style(LOG_STYLE),
-            ui.column().style("gap: 0px; line-break: anywhere;"),
-        ):
-            for container_log in self.docker.get_container_logs(
-                self.log_num_entries_com
+        if self.hive.container_logs:
+            with (
+                ui.scroll_area().classes("grow").style(LOG_STYLE) as scroll,
+                ui.column().style("gap: 0px; line-break: anywhere;"),
             ):
-                ui.label(container_log)
+                for container_log in self.hive.container_logs:
+                    ui.label(container_log)
+                scroll.scroll_to(percent=100)
+        else:
+            ui.label("No container logs found").tailwind(TEXT_INFO_STYLE)
         with ui.row().classes("flex items-center"):
             ui.label("Client Log").tailwind(HEADER_STYLE)
             ui.select(
                 options=[10, 20, 50, 100, 200],
-                value=self.log_num_entries_cli,
-                on_change=self.change_log_num_entries_cli,
+                value=self.hive.container_logs_num,
+                on_change=lambda evt: self.events.change_num_log_container.emit(
+                    evt.value
+                ),
             )
             ui.label("Einträge").tailwind(HEADER_STYLE)
-        if self.log_handler:
-            with (
-                ui.scroll_area().classes("grow").style(LOG_STYLE),
-                ui.column().style("gap: 0.5rem; line-break: anywhere;"),
-            ):
-                for record in self.log_handler.buffer[-self.log_num_entries_cli :][
-                    ::-1
-                ]:
-                    ui.label(self.log_handler.format(record))
+        with (
+            ui.scroll_area().classes("grow").style(LOG_STYLE) as scroll,
+            ui.column().style("gap: 0px; line-break: anywhere;"),
+        ):
+            for log in self.hive.client_logs:
+                ui.label(log)
+            scroll.scroll_to(percent=100)
 
     @ui.refreshable
     def docker_status(self) -> None:
-        docker_label = ui.label(f"{self.docker.state.name}")
+        docker_label = ui.label(f"{self.hive.docker_state.name}")
 
-        match self.docker.state:
+        match self.hive.docker_state:
             case DockerState.NOT_AVAILABLE | DockerState.NOT_CONFIGURED:
                 docker_label.tailwind(WARNING_STYLE)
             case DockerState.STOPPED:
@@ -318,31 +273,31 @@ class Frontend:
             case _:
                 docker_label.tailwind(PENDING_STYLE)
 
-        if self.docker.state == DockerState.NOT_AVAILABLE:
+        if self.hive.docker_state == DockerState.NOT_AVAILABLE:
             ui.button("Retry", icon="refresh").on_click(self.docker_status.refresh)
-        elif self.docker.state == DockerState.NOT_CONFIGURED:
+        elif self.hive.docker_state == DockerState.NOT_CONFIGURED:
             pass
-        elif self.docker.state == DockerState.STOPPED:
-            ui.button("Start", icon="rocket_launch").on_click(self.docker.start)
-        elif self.docker.state == DockerState.STARTED:
-            ui.button("Stop", icon="power_settings_new").on_click(self.docker.stop)
+        elif self.hive.docker_state == DockerState.STOPPED:
+            ui.button("Start", icon="rocket_launch").on_click(
+                lambda _: self.events.start_docker.emit()
+            )
+        elif self.hive.docker_state == DockerState.STARTED:
+            ui.button("Stop", icon="power_settings_new").on_click(
+                lambda _: self.events.stop_docker.emit()
+            )
         else:
             ui.spinner(size="lg")
 
     @ui.refreshable
     def repo_list(self) -> None:
-        if (
-            self.settings
-            and self.settings.hive_repo
-            and self.settings.hive_repo.exists()
-        ):
+        if self.hive.repo_state != RepoState.NOT_FOUND:
             with ui.expansion(
                 "Repository",
                 icon="folder",
                 value=self._repo_expanded,
                 on_value_change=lambda evt: setattr(self, "_repo_expanded", evt.value),
             ).classes("w-full"):
-                for level, name in list_files(self.settings.hive_repo)[1:]:
+                for level, name in list_files(self.hive.settings.hive_repo)[1:]:
                     with ui.row():
                         for _ in range(level - 2):
                             ui.space()
@@ -354,13 +309,13 @@ class Frontend:
     def footer(self) -> None:
         label = ui.label(__version__)
         label.tailwind("text-gray-500 font-semibold")
-        if self.docker.cli_state == UpdateState.UPDATE_AVAILABLE:
+        if self.hive.client_state == ClientState.UPDATE_AVAILABLE:
             icon = ui.icon("cloud_download", size="1.5rem")
             icon.tailwind("text-sky-500 font-semibold cursor-pointer")
-            icon.on("click", self.docker.update_cli)
-        elif self.docker.cli_state == UpdateState.UPDATING:
+            icon.on("click", lambda _: self.events.update_client.emit)
+        elif self.hive.client_state == ClientState.UPDATING:
             ui.spinner(size="sm")
-        elif self.docker.cli_state == UpdateState.RESTART_REQUIRED:
+        elif self.hive.client_state == ClientState.RESTART_REQUIRED:
             icon = ui.icon("restart_alt", size="1.5rem")
             icon.tailwind("""text-sky-500 font-semibold cursor-pointer""")
             icon.on("click", lambda: os.kill(os.getppid(), signal.SIGINT))
@@ -369,6 +324,7 @@ class Frontend:
         self.docker_status.refresh()
         self.available_endpoints.refresh()
         self.container_status.refresh()
+        self.recipe_status.refresh()
 
     def _on_cli_state_change(self) -> None:
         self.footer.refresh()
@@ -406,22 +362,14 @@ class Frontend:
             # Repo List
             self.repo_list()  # type: ignore[call-arg]
 
-            if not self.docker.images:
-                ui.label("No images found")
-            else:
-                with ui.expansion("Images", icon="image").classes("w-full"):
-                    for img in self.docker.images:
-                        if img.tags:
-                            ui.label(img.tags[0])
-
             with (
                 ui.expansion("Einstellungen", icon="settings").classes("w-full"),
-                ui.row().classes("w-full flex items-center"),
+                ui.column().classes("flex items-stretch"),
             ):
-                settings = self.settings
+                settings = self.hive.settings
                 ui.input(
                     label="Hive ID",
-                    value=self.settings.hive_id,
+                    value=settings.hive_id,
                     validation={
                         "Input must be a number!": lambda value: value.isdigit()
                     },
@@ -431,12 +379,37 @@ class Frontend:
                         evt.value if evt.value.isdigit() else evt.value,
                     ),
                 )
+                ui.number(
+                    label="Update Interval",
+                    value=settings.update_interval,
+                    min=5,
+                    max=24 * 60 * 60,
+                    on_change=lambda evt: (
+                        setattr(settings, "update_interval", round(evt.value))
+                        if evt.value is not None
+                        else None
+                    ),
+                )
+                ui.number(
+                    label="Log Interval",
+                    value=settings.log_interval,
+                    min=1,
+                    max=24 * 60 * 60,
+                    on_change=lambda evt: (
+                        setattr(settings, "log_interval", round(evt.value))
+                        if evt.value is not None
+                        else None
+                    ),
+                )
+                ui.checkbox(
+                    text="Auto Update Recipe",
+                    value=settings.auto_update_recipe,
+                    on_change=lambda evt: setattr(
+                        settings, "auto_update_recipe", evt.value
+                    ),
+                )
 
-                def on_save() -> None:
-                    self.settings.save()
-                    self.repo_status.refresh()
-
-                ui.button("Save").on_click(on_save)
+                ui.button("Save").on_click(lambda _: self.events.save_settings.emit())
 
         with ui.footer().classes("bg-gray-100"):
             ui.image("images/devcareop.svg").props("fit=scale-down").tailwind("w-10")
@@ -445,11 +418,7 @@ class Frontend:
 
         ui.page_title("CareDevOp Hive")
 
-        # Register listeners
-        self.docker.state_listener.append(self._on_docker_state_change)
-        self.docker.cli_state_listener.append(self._on_cli_state_change)
-
-        if self._with_app:
+        if self.app:
             ui.run_with(self.app, favicon=ICO)
         else:
             ui.run(show=False, favicon=ICO)
