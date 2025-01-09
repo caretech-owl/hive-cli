@@ -208,7 +208,7 @@ name = "click"
 version = "8.1.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "platform_system == 'Windows'" },
+    { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/96/d3/f04c7bfcf5c1862a2a5b845c6b2b360488cf47af55dfa79c98f6a6bf98b5/click-8.1.7.tar.gz", hash = "sha256:ca9853ad459e787e2192211578cc907e7594e294c7ccc834310722b41b9ca6de", size = 336121 }
 wheels = [
@@ -364,7 +364,7 @@ wheels = [
 
 [[package]]
 name = "hive-cli"
-version = "0.5.0"
+version = "0.6.0"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
@@ -374,6 +374,7 @@ dependencies = [
     { name = "humanize" },
     { name = "nicegui" },
     { name = "poethepoet" },
+    { name = "psygnal" },
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
 ]
@@ -397,6 +398,7 @@ requires-dist = [
     { name = "humanize", specifier = ">=4.11.0" },
     { name = "nicegui", specifier = ">=2.7.0" },
     { name = "poethepoet", specifier = ">=0.31.1" },
+    { name = "psygnal", specifier = ">=0.11.1" },
     { name = "pydantic-settings", specifier = ">=2.4.0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
 ]
@@ -798,6 +800,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/59/68/f918702e270eddc5f7c54108f6a2f2afc2d299985820dbb0db9beb77d66d/pscript-0.7.7.tar.gz", hash = "sha256:8632f7a4483f235514aadee110edee82eb6d67336bf68744a7b18d76e50442f8", size = 176138 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f1/bc/980e2ebd442d2a8f1d22780f73db76f2a1df3bf79b3fb501b054b4b4dd03/pscript-0.7.7-py3-none-any.whl", hash = "sha256:b0fdac0df0393a4d7497153fea6a82e6429f32327c4c0a4817f1cd68adc08083", size = 126689 },
+]
+
+[[package]]
+name = "psygnal"
+version = "0.11.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/bc/b0/194cfbcb76dbf9c4a1c4271ccc825b38406d20fb7f95fd18320c28708800/psygnal-0.11.1.tar.gz", hash = "sha256:f9b02ca246ab0adb108c4010b4a486e464f940543201074591e50370cd7b0cc0", size = 102103 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/33/5d/9b2d8f91a9198dda6ad0eaa276f975207b1314ac2d22a2f905f0a6e34524/psygnal-0.11.1-cp312-cp312-macosx_10_16_arm64.whl", hash = "sha256:0b55cb42e468f3a7de75392520778604fef2bc518b7df36c639b35ce4ed92016", size = 425244 },
+    { url = "https://files.pythonhosted.org/packages/c4/66/e1bd57a8efef6582141939876d014f86792adbbb8853bd475a1cbf3649ca/psygnal-0.11.1-cp312-cp312-macosx_10_16_x86_64.whl", hash = "sha256:c7dd3cf809c9c1127d90c6b11fbbd1eb2d66d512ccd4d5cab048786f13d11220", size = 444681 },
+    { url = "https://files.pythonhosted.org/packages/49/ad/8ee3f8ac1d59cf269ae2d55f7cac7c65fe3b3f41cada5d6a17bc2f4c5d6d/psygnal-0.11.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:885922a6e65ece9ff8ccf2b6810f435ca8067f410889f7a8fffb6b0d61421a0d", size = 743785 },
+    { url = "https://files.pythonhosted.org/packages/14/54/b29b854dff0e27bdaf42a7c1edc65f6d3ea35866e9d9250f1dbabf6381a0/psygnal-0.11.1-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:1c2388360a9ffcd1381e9b36d0f794287a270d58e69bf17658a194bbf86685c1", size = 725134 },
+    { url = "https://files.pythonhosted.org/packages/68/76/d5c5bf5a932ec2dcdc4a23565815a1cc5fd96b03b26ff3f647cdff5ea62c/psygnal-0.11.1-py3-none-any.whl", hash = "sha256:04255fe28828060a80320f8fda937c47bc0c21ca14f55a13eb7c494b165ea395", size = 76998 },
 ]
 
 [[package]]
