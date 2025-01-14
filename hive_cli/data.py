@@ -67,7 +67,7 @@ class Recipe(BaseModel):
         return path.absolute().as_posix()
 
     def composer_files(self) -> dict[Path, ComposerFile | None]:
-        files = {}
+        files: dict[Path, ComposerFile | None] = {}
         for local_path in self.compose:
             path = (
                 Path(local_path)

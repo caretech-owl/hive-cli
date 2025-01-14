@@ -5,7 +5,7 @@ import re
 import signal
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from fastapi import FastAPI
 from nicegui import ui
@@ -75,7 +75,11 @@ class Frontend:
         self.hive.events.client_state.connect(lambda _: self._on_cli_state_change())
         self.hive.events.repo_state.connect(lambda _: self.repo_status.refresh())
 
-    def notify(self, msg: str, type: str = "info") -> None:
+    def notify(
+        self,
+        msg: str,
+        type: Literal["positive", "negative", "warning", "info", "ongoing"] = "info",
+    ) -> None:
         ui.notification(msg, type=type)
 
     @ui.refreshable
@@ -160,6 +164,9 @@ class Frontend:
 
                         def on_create_compose(path: Path) -> None:
                             _LOGGER.info("Creating compose for %s", path)
+                            if not self.hive.recipe:
+                                msg = "Expected recipe to be set."
+                                raise AssertionError(msg)
                             compose = ComposerFile(services={})
                             compose.save(path)
                             self.hive.recipe.save()

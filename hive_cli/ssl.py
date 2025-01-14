@@ -5,7 +5,10 @@ from pathlib import Path
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.asymmetric.types import PrivateKeyTypes
+from cryptography.hazmat.primitives.asymmetric.types import (
+    CertificatePublicKeyTypes,
+    PrivateKeyTypes,
+)
 from cryptography.x509.oid import NameOID
 
 from hive_cli.config import load_settings
@@ -64,6 +67,9 @@ def generate_cert() -> None:
         return
     _LOGGER.info("Generating certificate ...")
     key = load_private_key(settings.passphrase, settings.key_path)
+    if not isinstance(key, rsa.RSAPrivateKey):
+        msg = "Private key is not a RSA private key."
+        raise AssertionError(msg)
     subject = issuer = x509.Name(
         [
             x509.NameAttribute(NameOID.COUNTRY_NAME, settings.country_name),
@@ -75,11 +81,15 @@ def generate_cert() -> None:
             x509.NameAttribute(NameOID.COMMON_NAME, settings.common_name),
         ]
     )
+    pub_key = key.public_key()
+    if not isinstance(pub_key, rsa.RSAPublicKey):
+        msg = "Public key is not a RSA public key."
+        raise AssertionError(msg)
     cert = (
         x509.CertificateBuilder()
         .subject_name(subject)
         .issuer_name(issuer)
-        .public_key(key.public_key())
+        .public_key(pub_key)
         .serial_number(x509.random_serial_number())
         .not_valid_before(datetime.datetime.now(datetime.timezone.utc))
         .not_valid_after(

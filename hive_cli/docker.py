@@ -20,7 +20,7 @@ class DockerController:
     def __init__(self, hive: HiveData) -> None:
         self.hive = hive
         self.client = None
-        self._runner = None
+        self._runner: Thread | None = None
         try:
             self.client = docker.from_env()
             self.update_container_states()
@@ -90,6 +90,8 @@ class DockerController:
         if recipe is None:
             return
         for composer_file in recipe.composer_files().values():
+            if composer_file is None:
+                continue
             for image_name in composer_file.images:
                 _LOGGER.info("Pulling image: %s", image_name)
                 pipe = self.compose_do("pull", image_name)

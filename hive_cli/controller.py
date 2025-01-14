@@ -132,10 +132,16 @@ class Controller:
         _LOGGER.debug("Refresh logs")
         self.log_timer.cancel()
         container_logs = self.docker.get_container_logs(self.hive.container_logs_num)
-        cli_logs = [
-            self.log_handler.format(record)
-            for record in self.log_handler.buffer[-self.hive.client_logs_num :][::-1]
-        ]
+        cli_logs = (
+            [
+                self.log_handler.format(record)
+                for record in self.log_handler.buffer[-self.hive.client_logs_num :][
+                    ::-1
+                ]
+            ]
+            if self.log_handler
+            else []
+        )
         self.hive.client_logs = cli_logs
         self.hive.container_logs = container_logs
         self.ui.log_status.refresh()
@@ -154,12 +160,12 @@ class Controller:
             recipe = None
         self.set_recipe(recipe)
 
-    def _defered_set_recipe(self, recipe: Recipe) -> None:
+    def _defered_set_recipe(self, recipe: Recipe | None) -> None:
         self.hive.recipe = recipe
         self.repo.update_state()
         self.docker.start()
 
-    def set_recipe(self, recipe: Recipe) -> None:
+    def set_recipe(self, recipe: Recipe | None) -> None:
         if self.hive.docker_state == DockerState.STARTED:
             self.docker.stop(lambda: self._defered_set_recipe(recipe))
         else:
