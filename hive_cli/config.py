@@ -61,8 +61,8 @@ class _Instance:
     settings: Settings | None = None
 
 
-def load_settings() -> Settings:
-    if _Instance.settings is None:
+def load_settings(reload: bool = False) -> Settings:
+    if reload or _Instance.settings is None:
         if not CLI_CONFIG.exists():
             with CLI_CONFIG.open("w") as f:
                 f.write(Settings().model_dump_json(indent=2))
