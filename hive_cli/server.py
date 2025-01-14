@@ -53,7 +53,7 @@ def prod() -> None:
 
     hive = HiveData(settings=settings)
     app = FastAPI()
-    frontend = Frontend(hive)
+    frontend = Frontend(hive, app)
     with Controller(frontend, hive):
         frontend.setup_ui()
         _LOGGER.info("Starting server.")
