@@ -13,6 +13,7 @@ from nicegui.events import ValueChangeEventArguments
 from psygnal import Signal
 
 from hive_cli import __version__
+from hive_cli.config import load_settings
 from hive_cli.data import ClientState, ComposerFile, HiveData, RepoState
 from hive_cli.docker import DockerState
 from hive_cli.styling import (
@@ -327,6 +328,69 @@ class Frontend:
             icon.tailwind("""text-sky-500 font-semibold cursor-pointer""")
             icon.on("click", lambda: os.kill(os.getppid(), signal.SIGINT))
 
+    @ui.refreshable
+    def settings_form(self, expanded: bool = False) -> None:
+        with (
+            ui.expansion("Einstellungen", icon="settings", value=expanded).classes(
+                "w-full"
+            ),
+            ui.column().classes("flex items-stretch"),
+        ):
+            settings = self.hive.settings
+            msg_val_alnum = "Only alphanumeric characters are allowed."
+            msg_val_len = "Must be between 4 and 32 characters."
+            ui.input(
+                label="Hive ID",
+                value=settings.hive_id,
+                validation={
+                    msg_val_len: lambda value: 4 <= len(value) <= 32,
+                    msg_val_alnum: lambda value: str(value).isalnum(),
+                },
+                on_change=lambda evt: setattr(
+                    settings,
+                    "hive_id",
+                    evt.value if evt.value.isdigit() else evt.value,
+                ),
+            )
+            ui.number(
+                label="Update Interval",
+                value=settings.update_interval,
+                min=5,
+                max=24 * 60 * 60,
+                on_change=lambda evt: (
+                    setattr(settings, "update_interval", round(evt.value))
+                    if evt.value is not None
+                    else None
+                ),
+            )
+            ui.number(
+                label="Log Interval",
+                value=settings.log_interval,
+                min=1,
+                max=24 * 60 * 60,
+                on_change=lambda evt: (
+                    setattr(settings, "log_interval", round(evt.value))
+                    if evt.value is not None
+                    else None
+                ),
+            )
+            ui.checkbox(
+                text="Auto Update Recipe",
+                value=settings.auto_update_recipe,
+                on_change=lambda evt: setattr(
+                    settings, "auto_update_recipe", evt.value
+                ),
+            )
+
+            def _refresh() -> None:
+                self.hive.settings = load_settings(reload=True)
+                self.settings_form.refresh(expanded=True)
+
+            with ui.row():
+                ui.button(icon="restore").on_click(_refresh)
+                ui.button("Save").on_click(lambda _: self.events.save_settings.emit())
+
+
     def _on_docker_state_change(self) -> None:
         self.docker_status.refresh()
         self.available_endpoints.refresh()
@@ -369,54 +433,8 @@ class Frontend:
             # Repo List
             self.repo_list()  # type: ignore[call-arg]
 
-            with (
-                ui.expansion("Einstellungen", icon="settings").classes("w-full"),
-                ui.column().classes("flex items-stretch"),
-            ):
-                settings = self.hive.settings
-                ui.input(
-                    label="Hive ID",
-                    value=settings.hive_id,
-                    validation={
-                        "Input must be a number!": lambda value: value.isdigit()
-                    },
-                    on_change=lambda evt: setattr(
-                        settings,
-                        "hive_id",
-                        evt.value if evt.value.isdigit() else evt.value,
-                    ),
-                )
-                ui.number(
-                    label="Update Interval",
-                    value=settings.update_interval,
-                    min=5,
-                    max=24 * 60 * 60,
-                    on_change=lambda evt: (
-                        setattr(settings, "update_interval", round(evt.value))
-                        if evt.value is not None
-                        else None
-                    ),
-                )
-                ui.number(
-                    label="Log Interval",
-                    value=settings.log_interval,
-                    min=1,
-                    max=24 * 60 * 60,
-                    on_change=lambda evt: (
-                        setattr(settings, "log_interval", round(evt.value))
-                        if evt.value is not None
-                        else None
-                    ),
-                )
-                ui.checkbox(
-                    text="Auto Update Recipe",
-                    value=settings.auto_update_recipe,
-                    on_change=lambda evt: setattr(
-                        settings, "auto_update_recipe", evt.value
-                    ),
-                )
-
-                ui.button("Save").on_click(lambda _: self.events.save_settings.emit())
+            # Settings
+            self.settings_form()  # type: ignore[call-arg]
 
         with ui.footer().classes("bg-gray-100"):
             ui.image("images/devcareop.svg").props("fit=scale-down").tailwind("w-10")
