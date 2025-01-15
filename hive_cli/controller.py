@@ -98,11 +98,15 @@ class Controller:
         self.repo.update_state()
 
     def _on_save_settings(self) -> None:
+        if self.hive.docker_state != DockerState.STOPPED:
+            msg = "Cannot save settings while docker is running."
+            raise AssertionError(msg)
         self.hive.settings.save()
         if self.hive.settings.update_interval != self.update_timer.interval:
             self.update_timer.cancel()
             self.update_timer = Timer(self.hive.settings.update_interval, self.update)
             self.update_timer.start()
+        self.load_recipe()
         self.ui.notify("Settings updated", type="positive")
 
     def update_recipe(self) -> None:
@@ -160,7 +164,10 @@ class Controller:
         self.set_recipe(recipe)
 
     def _defered_set_recipe(self, recipe: Recipe | None) -> None:
-        self.hive.recipe = recipe
+        if self.hive.recipe != recipe:
+            self.hive.recipe = recipe
+        else:
+            self.hive.events.recipe.emit(recipe)
         self.repo.update_state()
         self.docker.start()
 
@@ -168,7 +175,10 @@ class Controller:
         if self.hive.docker_state == DockerState.STARTED:
             self.docker.stop(lambda: self._defered_set_recipe(recipe))
         else:
-            self.hive.recipe = recipe
+            if self.hive.recipe != recipe:
+                self.hive.recipe = recipe
+            else:
+                self.hive.events.recipe.emit(recipe)
             self.repo.update_state()
             self.docker.update_container_states()
 
