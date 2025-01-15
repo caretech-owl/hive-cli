@@ -81,6 +81,7 @@ class DockerController:
             self.hive.client_state = ClientState.RESTART_REQUIRED
 
     def update_cli(self) -> None:
+        _LOGGER.info("Updating hive-cli")
         self.hive.client_state = ClientState.UPDATING
         thread = Thread(target=self._task_update)
         thread.start()

@@ -342,7 +342,7 @@ class Frontend:
         if self.hive.client_state == ClientState.UPDATE_AVAILABLE:
             icon = ui.icon("cloud_download", size="1.5rem")
             icon.tailwind("text-sky-500 font-semibold cursor-pointer")
-            icon.on("click", lambda _: self.events.update_client.emit)
+            icon.on("click", self.events.update_client.emit)
         elif self.hive.client_state == ClientState.UPDATING:
             ui.spinner(size="sm")
         elif self.hive.client_state == ClientState.RESTART_REQUIRED:
