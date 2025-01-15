@@ -64,7 +64,11 @@ class ErrorChecker:
             all(
                 validation(element.value)
                 for element in self.elements
-                for validation in element.validation.values()
+                for validation in (
+                    element.validation.values()  # type: ignore[union-attr]
+                    if hasattr(element.validation, "values")
+                    else [element.validation] if element.validation else []
+                )
             )
             and self.hive.docker_state == DockerState.STOPPED
         )
