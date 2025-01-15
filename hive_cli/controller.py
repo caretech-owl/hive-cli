@@ -136,9 +136,7 @@ class Controller:
         cli_logs = (
             [
                 self.log_handler.format(record)
-                for record in self.log_handler.buffer[-self.hive.client_logs_num :][
-                    ::-1
-                ]
+                for record in self.log_handler.buffer[-self.hive.client_logs_num :]
             ]
             if self.log_handler
             else []
