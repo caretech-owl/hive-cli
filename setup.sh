@@ -31,6 +31,10 @@ function hive_cli() {
         )
     fi
     docker login ghcr.io
+    if [ -n "${CLI_VERSION}" ]; then
+        echo "Pulling hive-cli version 'CLI_VERSION' ..."
+        docker pull ghcr.io/caretech-owl/hive-cli:\${CLI_VERSION}
+    fi
     docker volume create hive > /dev/null
     docker run -ti --rm \\
      -p \${HIVE_PORT}:\${HIVE_PORT} \\
@@ -42,7 +46,7 @@ function hive_cli() {
      -e HIVE_PORT=\${HIVE_PORT} \\
      \${OPT_SEC_ID[@]} \\
      \${OPT_INPUT_DIR[@]} \\
-     ghcr.io/caretech-owl/hive-cli
+     ghcr.io/caretech-owl/hive-cli:\${CLI_VERSION:-latest}
     res_code=\$?
     echo "Exited with code \${res_code}"
     if [ \${res_code} -eq 3 ]; then

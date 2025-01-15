@@ -21,7 +21,25 @@ Review [setup.sh](https://raw.githubusercontent.com/caretech-owl/hive-cli/refs/h
 curl --proto '=https' --tlsv1.2 -LsSf https://raw.githubusercontent.com/caretech-owl/hive-cli/refs/heads/main/setup.sh | sh
 ```
 
-### Output
+#### Output
+
+```shell
+✅ Adding hive_cli hook to .bashrc ...
+✅ Adding hive_cli hook to .zshrc ...
+ℹ️ Please restart your shell or run 'source ~/.bashrc', 'source ~/.zshrc' or 'source ~/.bash_profile'
+ℹ️ To use the function, run 'hive_cli'
+```
+
+### Running hive-cli
+
+Make sure to open a new terminal after the initial setup.
+Then just execute `hive_cli`:
+
+```shell
+hive_cli
+```
+
+#### Output
 
 ```shell
 DOCKER_GID=991
@@ -40,6 +58,32 @@ INFO:     Uvicorn running on https://0.0.0.0:12121 (Press CTRL+C to quit)
 ```
 
 `hive-cli` should now be available at https://0.0.0.0:12121 or https://localhost:12121 or https://127.0.0.1:12121 with a self-signed certificate.
+
+### Troubleshooting
+
+#### I get a warning when I open my browser!
+
+Sine `hive-cli` uses a self-signed certificate, this is expected behaviour.
+There are multiple ways to accept a self-signed certificate. With Chrome, just hit `advanced`, scroll down and `Proceed to 127.0.0.1 (unsafe)`.
+
+#### How do I update the `hive_cli` shell script.
+
+Just execute the inital setup again.
+
+#### How do I update the `hive-cli` service
+
+You can do this from inside the client.
+When you seen a little cloud at the bottom right of the interface as seen below just click it and wait for the download of the new version. The icon will change once you should restart the service.
+
+![](images/update_icon.png)
+
+Sometimes this mechanism is broken though (since this is experimental software).
+Your second option is to set the env variable `CLI_VERSION` and run `hive_cli` to force an update.
+
+```shell
+CLI_VERSION=latest hive_cli
+# use CLI_VERSION=0.1.2 if you want to pull a specific version
+```
 
 ## Concept
 
