@@ -364,7 +364,7 @@ wheels = [
 
 [[package]]
 name = "hive-cli"
-version = "0.6.3"
+version = "0.6.4"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
