@@ -31,7 +31,7 @@ function hive_cli() {
         )
     fi
     docker login ghcr.io
-    if [ -n "${CLI_VERSION}" ]; then
+    if [ -n "\${CLI_VERSION}" ]; then
         echo "Pulling hive-cli version 'CLI_VERSION' ..."
         docker pull ghcr.io/caretech-owl/hive-cli:\${CLI_VERSION}
     fi
