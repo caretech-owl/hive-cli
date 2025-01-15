@@ -43,6 +43,7 @@ class Controller:
         self.ui.events.initialize_repo.connect(self.repo.init_repo)
         self.ui.events.commit_changes.connect(self.repo.commit_changes)
         self.ui.events.update_recipe.connect(self.update_recipe)
+        self.ui.events.update_client.connect(self.docker.update_cli)
         self.log_handler: MemoryHandler | None = next(
             (
                 handler
