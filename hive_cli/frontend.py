@@ -1,7 +1,6 @@
 import logging
 import logging.handlers
 import os
-import re
 import signal
 from functools import partial
 from pathlib import Path
@@ -9,6 +8,7 @@ from typing import TYPE_CHECKING, Literal
 
 from fastapi import FastAPI
 from nicegui import ui
+from nicegui.elements.mixins.validation_element import ValidationElement
 from nicegui.events import ValueChangeEventArguments
 from psygnal import Signal
 
@@ -53,6 +53,23 @@ class FrontendEvent:
     stop_docker = Signal()
 
 
+class ErrorChecker:
+    def __init__(self, hive: HiveData, *elements: ValidationElement) -> None:
+        self.elements = elements
+        self.hive = hive
+
+    @property
+    def no_errors(self) -> bool:
+        return (
+            all(
+                validation(element.value)
+                for element in self.elements
+                for validation in element.validation.values()
+            )
+            and self.hive.docker_state == DockerState.STOPPED
+        )
+
+
 class Frontend:
 
     def __init__(
@@ -67,6 +84,7 @@ class Frontend:
         self.log_num_entries_com = 20
         self._recipe_expanded = False
         self._repo_expanded = False
+        self._settings_expanded = False
         self.events = FrontendEvent()
         self.hive.events.recipe.connect(lambda _: self.recipe_status.refresh())
         self.hive.events.container_states.connect(
@@ -329,17 +347,22 @@ class Frontend:
             icon.on("click", lambda: os.kill(os.getppid(), signal.SIGINT))
 
     @ui.refreshable
-    def settings_form(self, expanded: bool = False) -> None:
+    def settings_form(self) -> None:
         with (
-            ui.expansion("Einstellungen", icon="settings", value=expanded).classes(
-                "w-full"
-            ),
+            ui.expansion(
+                "Einstellungen",
+                icon="settings",
+                value=self._settings_expanded,
+                on_value_change=lambda evt: setattr(
+                    self, "_settings_expanded", evt.value
+                ),
+            ).classes("w-full"),
             ui.column().classes("flex items-stretch"),
         ):
             settings = self.hive.settings
             msg_val_alnum = "Only alphanumeric characters are allowed."
             msg_val_len = "Must be between 4 and 32 characters."
-            ui.input(
+            inp_id = ui.input(
                 label="Hive ID",
                 value=settings.hive_id,
                 validation={
@@ -349,9 +372,10 @@ class Frontend:
                 on_change=lambda evt: setattr(
                     settings,
                     "hive_id",
-                    evt.value if evt.value.isdigit() else evt.value,
+                    evt.value,
                 ),
             )
+
             ui.number(
                 label="Update Interval",
                 value=settings.update_interval,
@@ -384,18 +408,20 @@ class Frontend:
 
             def _refresh() -> None:
                 self.hive.settings = load_settings(reload=True)
-                self.settings_form.refresh(expanded=True)
+                self.settings_form.refresh()
 
             with ui.row():
                 ui.button(icon="restore").on_click(_refresh)
-                ui.button("Save").on_click(lambda _: self.events.save_settings.emit())
-
+                ui.button("Save").on_click(
+                    lambda _: self.events.save_settings.emit()
+                ).bind_enabled_from(ErrorChecker(self.hive, inp_id), "no_errors")
 
     def _on_docker_state_change(self) -> None:
         self.docker_status.refresh()
         self.available_endpoints.refresh()
         self.container_status.refresh()
         self.recipe_status.refresh()
+        self.settings_form.refresh()
 
     def _on_cli_state_change(self) -> None:
         self.footer.refresh()
