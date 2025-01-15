@@ -77,7 +77,7 @@ class RepoController:
             self.hive.repo_state = RepoState.NOT_FOUND
             return None
         branch_name = (
-            f"{self.hive.settings.hive_id[-6:]}-{int(datetime.now().timestamp())}"
+            f"{self.hive.settings.hive_id[:3]}_{self.hive.settings.hive_id[-3:]}-{int(datetime.now().timestamp())}"
         )
         _LOGGER.debug("Committing changes to remote branch %s", branch_name)
         origin = self.repo.remote("origin")
