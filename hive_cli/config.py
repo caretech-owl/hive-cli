@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SecretStr, field_serializer
 
 load_dotenv()
 
@@ -50,11 +50,16 @@ class Settings(BaseModel):
     server: ServerConfig = ServerConfig()
     log_level: str = "DEBUG"
     log_path: Path | None = CONFIG_PATH / "hive.log"
+    github_token: SecretStr | None = None
 
     def save(self) -> None:
         _LOGGER.info("Saving settings to %s", CLI_CONFIG)
         with CLI_CONFIG.open("w") as f:
             f.write(self.model_dump_json(indent=2))
+
+    @field_serializer("github_token", when_used="json")
+    def dump_secret(self, v: SecretStr) -> str:
+        return v.get_secret_value()
 
 
 class _Instance:
@@ -66,6 +71,11 @@ def load_settings(reload: bool = False) -> Settings:
         if not CLI_CONFIG.exists():
             with CLI_CONFIG.open("w") as f:
                 f.write(Settings().model_dump_json(indent=2))
-        with CLI_CONFIG.open() as f:
-            _Instance.settings = Settings.model_validate_json(f.read())
+        try:
+            with CLI_CONFIG.open() as f:
+                _Instance.settings = Settings.model_validate_json(f.read())
+        except Exception as e:
+            _LOGGER.error("Error loading settings: %s\nLet's do a reset!", e)
+            CLI_CONFIG.unlink()
+            return load_settings()
     return _Instance.settings
