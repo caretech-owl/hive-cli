@@ -27,11 +27,9 @@ from hive_cli.styling import (
     SIMPLE_STYLE,
     TEXT_INFO_STYLE,
     WARNING_STYLE,
+    copy_button,
     list_files,
 )
-
-if TYPE_CHECKING:
-    pass
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -96,7 +94,7 @@ class Frontend:
         )
         self.hive.events.docker_state.connect(lambda _: self._on_docker_state_change())
         self.hive.events.client_state.connect(lambda _: self._on_cli_state_change())
-        self.hive.events.repo_state.connect(lambda _: self.repo_status.refresh())
+        self.hive.events.repo_state.connect(lambda _: self._on_repo_state_change())
 
     def notify(
         self,
@@ -113,20 +111,31 @@ class Frontend:
             return
 
         ui.label("Konfiguration:").tailwind(SIMPLE_STYLE)
-        if self.hive.repo_state == RepoState.CHANGED_LOCALLY:
-            ui.label("Lokale Änderungen").tailwind(INFO_STYLE)
-            ui.button("Commit", icon="upgrade").on_click(
-                lambda _: self.events.commit_changes.emit()
-            )
+        if self.hive.repo_state in [
+            RepoState.CHANGED_LOCALLY,
+            RepoState.CHANGES_COMMITTED,
+        ]:
+            ui.label(
+                "Local Edits"
+                if self.hive.repo_state == RepoState.CHANGED_LOCALLY
+                else "Edits Committed"
+            ).tailwind(INFO_STYLE)
             ui.button("Reset", icon="restore").on_click(
                 lambda _: self.events.reset_repo.emit()
             )
+            if self.hive.repo_state == RepoState.CHANGED_LOCALLY:
+                ui.button("Commit", icon="upgrade").on_click(
+                    lambda _: self.events.commit_changes.emit()
+                )
         elif self.hive.repo_state == RepoState.UPDATE_AVAILABLE:
             ui.label("Update Available").tailwind(PENDING_STYLE)
             if not self.hive.settings.auto_update_recipe:
                 ui.button("Update", icon="refresh").on_click(
                     lambda _: self.events.update_recipe.emit()
                 )
+            ui.button("Check", icon="refresh").on_click(
+                lambda _: self.events.update.emit()
+            )
         elif self.hive.repo_state == RepoState.UPDATING:
             ui.label("Updating").tailwind(PENDING_STYLE)
         else:
@@ -146,7 +155,13 @@ class Frontend:
                     self, "_recipe_expanded", evt.value
                 ),
             ).classes("w-full"):
-                ui.label(self.hive.recipe.path.name).tailwind(HEADER_STYLE)
+                read_only = (
+                    self.hive.docker_state != DockerState.STOPPED
+                    or self.hive.repo_state == RepoState.CHANGES_COMMITTED
+                )
+                ui.label(
+                    self.hive.recipe.path.name + " 🔒" if read_only else ""
+                ).tailwind(HEADER_STYLE)
                 if self.hive.docker_state != DockerState.STOPPED:
                     ui.label("Recipe is read-only when Docker is not stopped").tailwind(
                         TEXT_INFO_STYLE
@@ -158,7 +173,7 @@ class Frontend:
                                 indent=2, exclude_none=True
                             )
                         },
-                        "readOnly": self.hive.docker_state != DockerState.STOPPED,
+                        "readOnly": read_only,
                     },
                     on_change=lambda evt: self.events.save_recipe.emit(
                         evt.content["json"]
@@ -166,7 +181,9 @@ class Frontend:
                 ).tailwind("w-full")
                 for path, compose in self.hive.recipe.composer_files().items():
                     if compose:
-                        ui.label(path.name).tailwind(SIMPLE_STYLE)
+                        ui.label(path.name + " 🔒" if read_only else "").tailwind(
+                            SIMPLE_STYLE
+                        )
                         ui.json_editor(
                             {
                                 "content": {
@@ -174,8 +191,7 @@ class Frontend:
                                         indent=2, exclude_none=True
                                     )
                                 },
-                                "readOnly": self.hive.docker_state
-                                != DockerState.STOPPED,
+                                "readOnly": read_only,
                             },
                             on_change=(
                                 lambda evt, path=path: self.events.save_compose.emit(
@@ -427,8 +443,29 @@ class Frontend:
         self.recipe_status.refresh()
         self.settings_form.refresh()
 
+    def _on_repo_state_change(self) -> None:
+        self.repo_status.refresh()
+        self.repo_list.refresh()
+        self.recipe_status.refresh()
+
     def _on_cli_state_change(self) -> None:
         self.footer.refresh()
+
+    def register_github(self, url: str, token: str) -> ui.dialog:
+        with ui.dialog() as dialog, ui.card():
+            ui.label("Retrieve GitHub Token").tailwind(HEADER_STYLE)
+            ui.label("To commit changes to the repository, a GitHub token is required.")
+            with ui.row():
+                ui.label(f"Pleaser enter")
+                ui.label(token).style("font-weight: bold")
+                copy_button(token, "Code")
+                ui.label(f"to")
+                ui.link(url, url, new_tab=True)
+            with ui.row():
+                ui.label("Status:")
+                ui.spinner()
+            ui.button("Cancel").on_click(dialog.close)
+        return dialog
 
     def setup_ui(self) -> None:
 
