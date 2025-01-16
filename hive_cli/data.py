@@ -97,7 +97,7 @@ class RepoState(enum.Enum):
     UPDATE_AVAILABLE = enum.auto()
     UPDATING = enum.auto()
     CHANGED_LOCALLY = enum.auto()
-
+    CHANGES_COMMITTED = enum.auto()
 
 class DockerState(enum.Enum):
     UNKNOWN = enum.auto()
