@@ -3,8 +3,10 @@ import re
 from logging.handlers import MemoryHandler
 from pathlib import Path
 from threading import Thread, Timer
+from time import sleep
 
 import yaml
+from pydantic import SecretStr
 
 from hive_cli.data import (
     COMPOSE_FILE_PATTERN,
@@ -16,6 +18,7 @@ from hive_cli.data import (
 )
 from hive_cli.docker import DockerController
 from hive_cli.frontend import Frontend
+from hive_cli.gh import get_access_token, request_code
 from hive_cli.repo import RepoController
 
 _LOGGER = logging.getLogger(__name__)
@@ -37,11 +40,11 @@ class Controller:
         self.ui.events.change_num_log_container.connect(lambda _: self.update_logs())
         self.ui.events.change_num_log_cli.connect(lambda _: self.update_logs())
         self.ui.events.save_settings.connect(self._on_save_settings)
-        self.ui.events.reset_repo.connect(self.repo.reset_repo)
+        self.ui.events.reset_repo.connect(self._on_reset_recipe)
         self.ui.events.stop_docker.connect(self.docker.stop)
         self.ui.events.start_docker.connect(self.docker.start)
         self.ui.events.initialize_repo.connect(self.repo.init_repo)
-        self.ui.events.commit_changes.connect(self.repo.commit_changes)
+        self.ui.events.commit_changes.connect(self._on_commit_changes)
         self.ui.events.update_recipe.connect(self.update_recipe)
         self.ui.events.update_client.connect(self.docker.update_cli)
         self.log_handler: MemoryHandler | None = next(
@@ -108,6 +111,37 @@ class Controller:
             self.update_timer.start()
         self.load_recipe()
         self.ui.notify("Settings updated", type="positive")
+
+    def _on_commit_changes(self) -> None:
+
+        if self.hive.settings.github_token is None:
+            user_code, device_code, url = request_code()
+            dialog = self.ui.register_github(url, user_code)
+            dialog.open()
+
+            def _wait_for_token() -> None:
+                access_token = None
+                while dialog.value and access_token is None:
+                    sleep(5)
+                    _LOGGER.debug("Waiting for token...")
+                    access_token = get_access_token(device_code)
+                if dialog.value:
+                    dialog.close()
+                if access_token:
+                    self.hive.settings.github_token = SecretStr(access_token)
+                    self.hive.settings.save()
+                    self.repo.commit_changes()
+                    self.ui.notify("Changes committed.", type="positive")
+
+            Thread(target=_wait_for_token).start()
+
+        else:
+            self.repo.commit_changes()
+            self.ui.notify("Changes committed", type="positive")
+
+    def _on_reset_recipe(self) -> None:
+        self.repo.reset_repo()
+        self.load_recipe()
 
     def update_recipe(self) -> None:
         _LOGGER.info("Recipe was changed remotely. Updating...")
