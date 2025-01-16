@@ -364,7 +364,7 @@ wheels = [
 
 [[package]]
 name = "hive-cli"
-version = "0.6.5"
+version = "0.6.6"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },
@@ -377,6 +377,7 @@ dependencies = [
     { name = "psygnal" },
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
+    { name = "requests" },
 ]
 
 [package.dev-dependencies]
@@ -401,6 +402,7 @@ requires-dist = [
     { name = "psygnal", specifier = ">=0.11.1" },
     { name = "pydantic-settings", specifier = ">=2.4.0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
+    { name = "requests", specifier = ">=2.32.3" },
 ]
 
 [package.metadata.requires-dev]
