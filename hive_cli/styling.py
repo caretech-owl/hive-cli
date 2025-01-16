@@ -49,8 +49,8 @@ def list_files(startpath: Path) -> list[tuple[int, str]]:
     return out
 
 
-def copy_button(text: str, what: str, **kwargs: dict[str, Any]) -> ui.button:
-    icon = ui.icon("content_copy", **kwargs)
+def copy_icon(text: str, what: str) -> ui.icon:
+    icon = ui.icon("content_copy")
     icon.on("click", lambda: copy_data(text, what))
     return icon
 

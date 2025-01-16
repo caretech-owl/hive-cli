@@ -119,10 +119,10 @@ class RepoController:
 
 class TokenizedRemote:
 
-    def __init__(self, remote: Remote, token: str) -> None:
-        self.remote: Remote = remote
+    def __init__(self, remote: Remote, token: SecretStr | None) -> None:
+        self.remote = remote
         self.tmp_remote: Remote | None = None
-        self.token: SecretStr | None = token
+        self.token = token
 
     def __enter__(self) -> Remote:
         if self.token is None:

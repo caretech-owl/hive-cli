@@ -27,7 +27,7 @@ from hive_cli.styling import (
     SIMPLE_STYLE,
     TEXT_INFO_STYLE,
     WARNING_STYLE,
-    copy_button,
+    copy_icon,
     list_files,
 )
 
@@ -458,7 +458,7 @@ class Frontend:
             with ui.row():
                 ui.label(f"Pleaser enter")
                 ui.label(token).style("font-weight: bold")
-                copy_button(token, "Code")
+                copy_icon(token, "Code")
                 ui.label(f"to")
                 ui.link(url, url, new_tab=True)
             with ui.row():

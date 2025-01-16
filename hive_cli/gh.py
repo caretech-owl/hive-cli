@@ -31,7 +31,4 @@ def get_access_token(device_code: str) -> str | None:
         timeout=TIMEOUT,
     )
     data = parse_qs(res.text)
-    if "access_token" not in data:
-        _LOGGER.error("Could not get access token: %s", data)
-        return None
-    return data.get("access_token")[0]
+    return data.get("access_token", [None])[0]
