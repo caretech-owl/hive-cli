@@ -1,4 +1,7 @@
 from pathlib import Path
+from typing import Any
+
+from nicegui import ui
 
 HEADER_STYLE = "text-lg"
 WARNING_STYLE = (
@@ -44,3 +47,15 @@ def list_files(startpath: Path) -> list[tuple[int, str]]:
         out.append((level, root.name))
         out.extend([(level + 1, f) for f in files])
     return out
+
+
+def copy_button(text: str, what: str, **kwargs: dict[str, Any]) -> ui.button:
+    icon = ui.icon("content_copy", **kwargs)
+    icon.on("click", lambda: copy_data(text, what))
+    return icon
+
+async def copy_data(text: str, what: str) -> None:
+    ui.run_javascript(
+        "navigator.clipboard.writeText(`" + text + "`)"
+    )
+    ui.notify(f"{what} '{text}' Copied To Clipboard", color="positive")
