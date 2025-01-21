@@ -511,6 +511,6 @@ class Frontend:
         ui.page_title("CareDevOp Hive")
 
         if self.app:
-            ui.run_with(self.app, favicon=ICO)
+            ui.run_with(self.app, favicon=ICO, title="Hive Cli")
         else:
-            ui.run(show=False, favicon=ICO)
+            ui.run(show=False, favicon=ICO, title="Hive Cli")
