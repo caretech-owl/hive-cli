@@ -1,7 +1,6 @@
 import datetime
 import logging
 from pathlib import Path
-from textwrap import wrap
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -67,7 +66,7 @@ def get_sha256_fingerprint() -> str:
         return
     with settings.cert_path.open("rb") as f:
         cert: x509.Certificate = x509.load_pem_x509_certificate(f.read())
-    return " ".join(wrap(cert.fingerprint(hashes.SHA256()).hex().upper(), 2))
+    return cert.fingerprint(hashes.SHA256()).hex()
 
 
 def generate_cert() -> None:
