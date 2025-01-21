@@ -1,12 +1,12 @@
 import datetime
 import logging
 from pathlib import Path
+from textwrap import wrap
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric.types import (
-    CertificatePublicKeyTypes,
     PrivateKeyTypes,
 )
 from cryptography.x509.oid import NameOID
@@ -58,6 +58,16 @@ def load_private_key(passphrase: str, path: Path) -> PrivateKeyTypes:
             f.read(),
             password=passphrase.encode(),
         )
+
+
+def get_sha256_fingerprint() -> str:
+    settings = load_settings().server.ssl
+    if not settings.cert_path.exists():
+        _LOGGER.error("Certificate does not exist.")
+        return
+    with settings.cert_path.open("rb") as f:
+        cert: x509.Certificate = x509.load_pem_x509_certificate(f.read())
+    return " ".join(wrap(cert.fingerprint(hashes.SHA256()).hex().upper(), 2))
 
 
 def generate_cert() -> None:

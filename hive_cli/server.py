@@ -10,6 +10,7 @@ from hive_cli.config import load_settings
 from hive_cli.controller import Controller
 from hive_cli.data import HiveData
 from hive_cli.frontend import Frontend
+from hive_cli.ssl import get_sha256_fingerprint
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -51,6 +52,7 @@ def prod() -> None:
         _LOGGER.info("No SSL certificate found. Generating a new one.")
         generate_cert()
 
+    _LOGGER.info("Cert Fingerprint: %s", get_sha256_fingerprint())
     hive = HiveData(settings=settings)
     app = FastAPI()
     frontend = Frontend(hive, app)
