@@ -58,8 +58,8 @@ class Settings(BaseModel):
             f.write(self.model_dump_json(indent=2))
 
     @field_serializer("github_token", when_used="json")
-    def dump_secret(self, v: SecretStr) -> str:
-        return v.get_secret_value()
+    def dump_secret(self, v: SecretStr) -> str | None:
+        return v.get_secret_value() if v else None
 
 
 class _Instance:
