@@ -10,6 +10,7 @@ from hive_cli.config import load_settings
 from hive_cli.controller import Controller
 from hive_cli.data import HiveData
 from hive_cli.frontend import Frontend
+from hive_cli.infopage import InfoPage
 from hive_cli.ssl import get_sha256_fingerprint
 
 _LOGGER = logging.getLogger(__name__)
@@ -45,29 +46,39 @@ def setup_logging() -> None:
 def prod() -> None:
     settings = load_settings()
     setup_logging()
+    hive = HiveData(settings=settings)
+    app = FastAPI()
 
     if not settings.server.ssl.cert_path.exists():
         from hive_cli.ssl import generate_cert
 
         _LOGGER.info("No SSL certificate found. Generating a new one.")
         generate_cert()
-
-    _LOGGER.info("Cert Fingerprint: %s", get_sha256_fingerprint())
-    hive = HiveData(settings=settings)
-    app = FastAPI()
-    frontend = Frontend(hive, app)
-    with Controller(frontend, hive):
-        frontend.setup_ui()
-        _LOGGER.info("Starting server.")
+        (settings.hive_repo.parent / "_restart").touch()
+        page = InfoPage(get_sha256_fingerprint(), app)
+        page.setup_ui()
         uvicorn.run(
             app,
             host=os.getenv("HIVE_HOST", "localhost"),
             port=int(os.getenv("HIVE_PORT", 12121)),
-            ssl_keyfile=settings.server.ssl.key_path,
-            ssl_certfile=settings.server.ssl.cert_path,
-            ssl_keyfile_password=settings.server.ssl.passphrase,
             timeout_graceful_shutdown=1,
         )
+    else:
+        _LOGGER.info("Cert Fingerprint: %s", get_sha256_fingerprint())
+
+        frontend = Frontend(hive, app)
+        with Controller(frontend, hive):
+            frontend.setup_ui()
+            _LOGGER.info("Starting server.")
+            uvicorn.run(
+                app,
+                host=os.getenv("HIVE_HOST", "localhost"),
+                port=int(os.getenv("HIVE_PORT", 12121)),
+                ssl_keyfile=settings.server.ssl.key_path,
+                ssl_certfile=settings.server.ssl.cert_path,
+                ssl_keyfile_password=settings.server.ssl.passphrase,
+                timeout_graceful_shutdown=1,
+            )
     _LOGGER.info("Shutting down.")
     if (settings.hive_repo.parent / "_restart").exists():
         (settings.hive_repo.parent / "_restart").unlink()
