@@ -31,8 +31,9 @@ class InfoPage:
             ui.label(
                 "A self-signed SSL certificate has been generated. "
                 "This certificate is used to secure the connection. "
-                "However, you need to manually verify this certificate."
+                "However, you need to manually verify this certificate. "
             )
+            ui.markdown("Click **Instructions** to see how to do this.")
             with ui.row():
                 ui.label("Fingerprint:").tailwind("font-bold")
                 ui.label(self.fingerprint or "No fingerprint found!").tailwind(
@@ -42,10 +43,17 @@ class InfoPage:
             ui.label(
                 "Click the button below to restart the Hive CLI with a secure HTTPS connection."
             )
-
-            btn = ui.button(
-                "Restart",
-                on_click=_on_restart,
-            )
-            btn.on_click(lambda _: c.remove(btn) or ui.spinner(size="2em"))
+            with ui.row():
+                ins = ui.button(
+                    "Instructions",
+                    on_click=lambda _: ui.navigate.to(
+                        "https://github.com/caretech-owl/hive-cli/blob/main/images/create_cert.gif?raw=true",
+                        new_tab=True,
+                    ),
+                )
+                btn = ui.button(
+                    "Restart",
+                    on_click=_on_restart,
+                )
+                btn.on_click(lambda _: c.remove(btn) or ui.spinner(size="2em"))
         ui.run_with(self.app, favicon=ICO, title="Hive Cli")
