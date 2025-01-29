@@ -6,7 +6,12 @@ Controls the CareTech OWL [hive](https://github.com/caretech-owl/hive).
 
 ### Preparations: Login into GHCR
 
-Login into GitHub with a [personal access token (ck)](https://github.com/settings/tokens) that only requires `write:packages` permissions.
+You need docker to be setup.
+Follow the steps [described here](https://docs.docker.com/engine/install/) to install and configure the docker engine.
+Furthermore, you need to be able to run docker as a user.
+How this can be achieved for Linux is documented [here](https://docs.docker.com/engine/install/linux-postinstall/)
+
+Login into GitHub with a [personal access token (ck)](https://github.com/settings/tokens) that only requires `read:packages` permissions.
 Find more info [here](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-to-the-container-registry).
 
 ```shell
