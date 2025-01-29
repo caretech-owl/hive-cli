@@ -59,11 +59,11 @@ def load_private_key(passphrase: str, path: Path) -> PrivateKeyTypes:
         )
 
 
-def get_sha256_fingerprint() -> str:
+def get_sha256_fingerprint() -> str | None:
     settings = load_settings().server.ssl
     if not settings.cert_path.exists():
         _LOGGER.error("Certificate does not exist.")
-        return
+        return None
     with settings.cert_path.open("rb") as f:
         cert: x509.Certificate = x509.load_pem_x509_certificate(f.read())
     return cert.fingerprint(hashes.SHA256()).hex()
