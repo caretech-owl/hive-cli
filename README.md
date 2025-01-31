@@ -1,10 +1,12 @@
 # hive-cli
 
-Controls the CareTech OWL [hive](https://github.com/caretech-owl/hive).
+![](images/HiveMonitor.png)
+
+Client for the Hive. Used in conjunction with [hive-config](https://github.com/caretech-owl/hive-config) and [hive-builder](https://github.com/caretech-owl/hive-builder).
 
 ## Quickstart
 
-### Preparations: Login into GHCR
+### Preparations: Setup Docker and login into GHCR
 
 You need docker to be setup.
 Follow the steps [described here](https://docs.docker.com/engine/install/) to install and configure the docker engine.
