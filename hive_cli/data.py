@@ -22,6 +22,7 @@ class ComposerService(BaseModel):
     depends_on: list[str] | None = None
     command: list[str] | None = None
     entrypoint: list[str] | None = None
+    runtime: str | None = None
 
 
 class ComposerNetwork(BaseModel):
