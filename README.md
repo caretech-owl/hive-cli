@@ -53,7 +53,7 @@ Creating group _docker with GID 991
 Uninstalled 1 package in 0.58ms
 Installed 1 package in 1ms
 Poe => prod
-DEBUG:hive_cli.repo:Fetching origin from https://github.com/caretech-owl/hive.git
+DEBUG:hive_cli.repo:Fetching origin from https://github.com/caretech-owl/hive-config.git
 DEBUG:hive_cli.docker:Running command: docker-compose -f compose/gerd.yml ps --format json
 INFO:hive_cli.server:Starting server.
 INFO:     Started server process [28]

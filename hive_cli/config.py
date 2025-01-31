@@ -41,8 +41,8 @@ class ServerConfig(BaseModel):
 
 class Settings(BaseModel):
     hive_id: str = Field(default_factory=lambda: uuid.uuid4().hex)
-    hive_url: str = "https://github.com/caretech-owl/hive.git"
-    hive_repo: Path = CONFIG_PATH / "hive"
+    hive_url: str = "https://github.com/caretech-owl/hive-config.git"
+    hive_repo: Path = CONFIG_PATH / "hive-config"
     auto_update_recipe: bool = True
     update_interval: int = 600
     log_interval: int = 10
