@@ -55,5 +55,7 @@ class InfoPage:
                     "Restart",
                     on_click=_on_restart,
                 )
-                btn.on_click(lambda _: c.remove(btn) or ui.spinner(size="2em"))
+                btn.on_click(
+                    lambda _: (c.remove(btn) is None, ui.spinner(size="2em"))
+                )
         ui.run_with(self.app, favicon=ICO, title="Hive Cli")

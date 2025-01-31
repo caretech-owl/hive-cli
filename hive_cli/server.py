@@ -55,7 +55,7 @@ def prod() -> None:
         _LOGGER.info("No SSL certificate found. Generating a new one.")
         generate_cert()
         (settings.hive_repo.parent / "_restart").touch()
-        page = InfoPage(get_sha256_fingerprint(), app)
+        page = InfoPage(get_sha256_fingerprint() or "No Certificate found!", app)
         page.setup_ui()
         uvicorn.run(
             app,
