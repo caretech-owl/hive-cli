@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 from fastapi import FastAPI
-from nicegui import ui
+from nicegui import app, ui
 from nicegui.elements.mixins.validation_element import ValidationElement
 from nicegui.events import ValueChangeEventArguments
 from psygnal import Signal
@@ -513,4 +513,5 @@ class Frontend:
         if self.app:
             ui.run_with(self.app, favicon=ICO, title="Hive Cli")
         else:
+            app.add_static_files("images", "images")
             ui.run(show=False, favicon=ICO, title="Hive Cli")

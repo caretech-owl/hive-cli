@@ -5,6 +5,7 @@ import sys
 
 import uvicorn
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from hive_cli.config import load_settings
 from hive_cli.controller import Controller
@@ -48,6 +49,7 @@ def prod() -> None:
     setup_logging()
     hive = HiveData(settings=settings)
     app = FastAPI()
+    app.mount("/images", StaticFiles(directory="images"), name="images")
 
     if not settings.server.ssl.cert_path.exists():
         from hive_cli.ssl import generate_cert
