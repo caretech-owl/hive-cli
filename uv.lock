@@ -399,7 +399,7 @@ requires-dist = [
     { name = "humanize", specifier = ">=4.11.0" },
     { name = "nicegui", specifier = ">=2.7.0" },
     { name = "poethepoet", specifier = ">=0.31.1" },
-    { name = "psygnal", specifier = ">=0.11.1" },
+    { name = "psygnal", specifier = "==0.11.1" },
     { name = "pydantic-settings", specifier = ">=2.4.0" },
     { name = "python-dotenv", specifier = ">=1.0.1" },
     { name = "requests", specifier = ">=2.32.3" },
