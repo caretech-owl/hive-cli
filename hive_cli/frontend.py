@@ -107,7 +107,9 @@ class Frontend:
     def repo_status(self) -> None:
         if self.hive.repo_state == RepoState.NOT_FOUND:
             ui.label("Repository not initialized").tailwind(WARNING_STYLE)
-            ui.button("Initialize").on_click(self.events.initialize_repo.emit)
+            ui.button("Initialize").on_click(
+                lambda _: self.events.initialize_repo.emit()
+            )
             return
 
         ui.label("Konfiguration:").tailwind(SIMPLE_STYLE)
@@ -358,13 +360,13 @@ class Frontend:
         if self.hive.client_state == ClientState.UPDATE_AVAILABLE:
             icon = ui.icon("cloud_download", size="1.5rem")
             icon.tailwind("text-sky-500 font-semibold cursor-pointer")
-            icon.on("click", self.events.update_client.emit)
+            icon.on("click", lambda _: self.events.update_client.emit())
         elif self.hive.client_state == ClientState.UPDATING:
             ui.spinner(size="sm")
         elif self.hive.client_state == ClientState.RESTART_REQUIRED:
             icon = ui.icon("restart_alt", size="1.5rem")
             icon.tailwind("""text-sky-500 font-semibold cursor-pointer""")
-            icon.on("click", lambda: os.kill(os.getppid(), signal.SIGINT))
+            icon.on("click", lambda _: os.kill(os.getppid(), signal.SIGINT))
 
     @ui.refreshable
     def settings_form(self) -> None:
