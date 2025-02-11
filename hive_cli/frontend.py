@@ -261,22 +261,16 @@ class Frontend:
         else:
             ui.label("No running container found").tailwind(TEXT_INFO_STYLE)
 
-    def change_log_num_entries_cli(self, evt: ValueChangeEventArguments) -> None:
-        self.log_num_entries_cli = evt.value
-        self.log_status.refresh()
-
-    def change_log_num_entries_com(self, evt: ValueChangeEventArguments) -> None:
-        self.log_num_entries_com = evt.value
-        self.log_status.refresh()
-
     @ui.refreshable
     def log_status(self) -> None:
         with ui.row().classes("flex items-center"):
             ui.label("Container Log").tailwind(HEADER_STYLE)
             ui.select(
                 options=[10, 20, 50, 100, 200],
-                value=self.log_num_entries_com,
-                on_change=self.change_log_num_entries_com,
+                value=self.hive.container_logs_num,
+                on_change=lambda evt: self.events.change_num_log_container.emit(
+                    evt.value
+                )
             )
             ui.label("Einträge").tailwind(HEADER_STYLE)
         if self.hive.container_logs:
@@ -293,8 +287,8 @@ class Frontend:
             ui.label("Client Log").tailwind(HEADER_STYLE)
             ui.select(
                 options=[10, 20, 50, 100, 200],
-                value=self.hive.container_logs_num,
-                on_change=lambda evt: self.events.change_num_log_container.emit(
+                value=self.hive.client_logs_num,
+                on_change=lambda evt: self.events.change_num_log_cli.emit(
                     evt.value
                 ),
             )

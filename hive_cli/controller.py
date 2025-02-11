@@ -37,8 +37,10 @@ class Controller:
         self.ui.events.save_compose.connect(self._on_save_compose)
         self.ui.events.update.connect(self.update)
         self.ui.events.create_recipe.connect(self._on_create_recipe)
-        self.ui.events.change_num_log_container.connect(lambda _: self.update_logs())
-        self.ui.events.change_num_log_cli.connect(lambda _: self.update_logs())
+        self.ui.events.change_num_log_container.connect(
+            self._on_change_num_log_container
+        )
+        self.ui.events.change_num_log_cli.connect(self._on_change_num_log_cli)
         self.ui.events.save_settings.connect(self._on_save_settings)
         self.ui.events.reset_repo.connect(self._on_reset_recipe)
         self.ui.events.stop_docker.connect(self.docker.stop)
@@ -56,6 +58,14 @@ class Controller:
             None,
         )
         self.load_recipe()
+
+    def _on_change_num_log_cli(self, num: int) -> None:
+        self.hive.client_logs_num = num
+        self.update_logs()
+
+    def _on_change_num_log_container(self, num: int) -> None:
+        self.hive.container_logs_num = num
+        self.update_logs()
 
     def _on_create_recipe(self) -> None:
         _LOGGER.info("Creating recipe for %s", self.hive.settings.hive_id)
